@@ -97,22 +97,22 @@ export function assemble(lines: OvertureMnemonic[]): Byte[] {
         case "jmp":
           conditionCode = 0b001;
           break;
-        case "jeq":
+        case "jz":
           conditionCode = 0b010;
           break;
-        case "jne":
+        case "jnz":
           conditionCode = 0b011;
           break;
-        case "jgt":
+        case "js":
           conditionCode = 0b100;
           break;
-        case "jlt":
+        case "jns":
           conditionCode = 0b101;
           break;
-        case "jge":
+        case "jsz":
           conditionCode = 0b110;
           break;
-        case "jle":
+        case "jnsz":
           conditionCode = 0b111;
           break;
         default:

@@ -111,23 +111,23 @@ export class Overture implements CPU {
       case 0b001: // JMP:
         shouldJump = true;
         break;
-      case 0b010: // JEQ:
+      case 0b010: // JZ:
         shouldJump = test === 0;
         break;
-      case 0b011: // JNE:
+      case 0b011: // JNZ:
         shouldJump = test !== 0;
         break;
-      case 0b100: // JGT:
-        shouldJump = sign === 0 && test !== 0;
-        break;
-      case 0b101: // JLT:
+      case 0b100: // JS:
         shouldJump = sign === 1;
         break;
-      case 0b110: // JGE:
-        shouldJump = sign === 0;
+      case 0b101: // JNS:
+        shouldJump = sign !== 1;
         break;
-      case 0b111: // JLE:
+      case 0b110: // JSZ:
         shouldJump = sign === 1 || test === 0;
+        break;
+      case 0b111: // JNSZ:
+        shouldJump = sign !== 1 && test !== 0;
         break;
     }
     if (shouldJump) {
