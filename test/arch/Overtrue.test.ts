@@ -1,15 +1,48 @@
 import { describe, expect, test } from "bun:test";
 
-import type { CPUState } from "@/arch/CPU";
+import { buildTestLogger } from "~shared/testkit/TestLogger";
+
 import {
-  Overture,
-  type OvertureAssembly,
-  assembleOverture,
-} from "@/arch/Overtrue";
+  type Byte,
+  type CPUState,
+  CollectOutput,
+  QueueInput,
+} from "@/arch/CPU";
+import { Overture, type OvertureMnemonic, assemble } from "@/arch/Overtrue";
 
 describe("Overtrue", () => {
+  const logger = buildTestLogger().extend("Overtrue");
+  function run(options: {
+    programLines: OvertureMnemonic[];
+    inputValues: Byte[];
+    maxTicks: number;
+    afterHook?: (
+      state: CPUState,
+      tick: number,
+      output: CollectOutput
+    ) => "stop" | void;
+  }) {
+    const program = assemble(options.programLines);
+    const overture = new Overture();
+    overture.load(program);
+    const input = new QueueInput([...options.inputValues]);
+    overture.attachInput(input);
+    const output = new CollectOutput();
+    overture.attachOutput(output);
+    for (let tick = 0; tick < options.maxTicks; tick++) {
+      overture.step();
+      const state: CPUState = overture.snapshot();
+      logger.info({ state, out: output.out })`Tick ${tick}`;
+      const result = options.afterHook?.(state, tick, output);
+      if (result === "stop") {
+        break;
+      }
+    }
+    return { overture, input, output };
+  }
+
   test("每個輸入加5後輸出", () => {
-    const assembly: OvertureAssembly[] = [
+    const lines: OvertureMnemonic[] = [
       `imm 5`,
       `mov r0 r2`,
       `mov in r1`,
@@ -18,30 +51,20 @@ describe("Overtrue", () => {
       `imm 0`,
       `jmp`,
     ];
-    const program = assembleOverture(assembly);
-    const overture = new Overture();
-    overture.loadProgram(program);
+
     const inputs = [1, 10, 5, 20, 125];
-    const inputStream = [...inputs];
-    const outputs: number[] = [];
-    overture.connectInput(() => inputStream.shift() ?? 0);
-    overture.connectOutput((value) => outputs.push(value));
 
-    function printState(tick: number, state: CPUState) {
-      console.log(
-        `tick ${tick} pc=${state.pc} r=[${state.registers.join(",")}] out=[${outputs.join(",")}]`
-      );
-    }
+    const { output } = run({
+      programLines: lines,
+      inputValues: inputs,
+      maxTicks: 100,
+      afterHook: (_1, _2, output) => {
+        if (output.out.length >= inputs.length) {
+          return "stop";
+        }
+      },
+    });
 
-    for (let tick = 0; tick < 200; tick++) {
-      overture.tick();
-      const { pc, registers } = overture.getCurrentState();
-      printState(tick, { pc, registers });
-      if (outputs.length >= inputs.length) {
-        break;
-      }
-    }
-
-    expect(outputs).toEqual(inputs.map((v) => (v + 5) & 0xff));
+    expect(output.out).toEqual(inputs.map((v) => (v + 5) & 0xff));
   });
 });
