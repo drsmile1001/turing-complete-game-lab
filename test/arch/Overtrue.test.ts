@@ -145,14 +145,12 @@ describe("Overtrue", () => {
       });
     });
 
-    test("jz when zero", () => {
+    test("jz", () => {
       runConditionalJumpTest({
         condition: "jz",
         testValue: 10, // 10 - 10 == 0
         shouldJump: true,
       });
-    });
-    test("jz when not zero", () => {
       runConditionalJumpTest({
         condition: "jz",
         testValue: 5, // 5 - 10 < 0
@@ -162,6 +160,96 @@ describe("Overtrue", () => {
         condition: "jz",
         testValue: 15, // 15 - 10 > 0
         shouldJump: false,
+      });
+    });
+
+    test("jnz", () => {
+      runConditionalJumpTest({
+        condition: "jnz",
+        testValue: 10, // 10 - 10 == 0
+        shouldJump: false,
+      });
+      runConditionalJumpTest({
+        condition: "jnz",
+        testValue: 5, // 5 - 10 < 0
+        shouldJump: true,
+      });
+      runConditionalJumpTest({
+        condition: "jnz",
+        testValue: 15, // 15 - 10 > 0
+        shouldJump: true,
+      });
+    });
+
+    test("js", () => {
+      runConditionalJumpTest({
+        condition: "js",
+        testValue: 10, // 10 - 10 == 0
+        shouldJump: false,
+      });
+      runConditionalJumpTest({
+        condition: "js",
+        testValue: 5, // 5 - 10 < 0
+        shouldJump: true,
+      });
+      runConditionalJumpTest({
+        condition: "js",
+        testValue: 15, // 15 - 10 > 0
+        shouldJump: false,
+      });
+    });
+
+    test("jns", () => {
+      runConditionalJumpTest({
+        condition: "jns",
+        testValue: 10, // 10 - 10 == 0
+        shouldJump: true,
+      });
+      runConditionalJumpTest({
+        condition: "jns",
+        testValue: 5, // 5 - 10 < 0
+        shouldJump: false,
+      });
+      runConditionalJumpTest({
+        condition: "jns",
+        testValue: 15, // 15 - 10 > 0
+        shouldJump: true,
+      });
+    });
+
+    test("jsz", () => {
+      runConditionalJumpTest({
+        condition: "jsz",
+        testValue: 10, // 10 - 10 == 0
+        shouldJump: true,
+      });
+      runConditionalJumpTest({
+        condition: "jsz",
+        testValue: 5, // 5 - 10 < 0
+        shouldJump: true,
+      });
+      runConditionalJumpTest({
+        condition: "jsz",
+        testValue: 15, // 15 - 10 > 0
+        shouldJump: false,
+      });
+    });
+
+    test("jnsz", () => {
+      runConditionalJumpTest({
+        condition: "jnsz",
+        testValue: 10, // 10 - 10 == 0
+        shouldJump: false,
+      });
+      runConditionalJumpTest({
+        condition: "jnsz",
+        testValue: 5, // 5 - 10 < 0
+        shouldJump: false,
+      });
+      runConditionalJumpTest({
+        condition: "jnsz",
+        testValue: 15, // 15 - 10 > 0
+        shouldJump: true,
       });
     });
   });
