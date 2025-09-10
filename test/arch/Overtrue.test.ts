@@ -3,7 +3,12 @@ import { describe, expect, test } from "bun:test";
 import { buildTestLogger } from "~shared/testkit/TestLogger";
 
 import { type Byte, type CPUState } from "@/arch/CPU";
-import { Overture, type OvertureMnemonic, assemble } from "@/arch/Overtrue";
+import {
+  type COND,
+  Overture,
+  type OvertureMnemonic,
+  assemble,
+} from "@/arch/Overtrue";
 import { QueuePort } from "@/arch/QueuePort";
 
 describe("Overtrue", () => {
@@ -67,6 +72,98 @@ describe("Overtrue", () => {
     const { registers } = overture.snapshot();
     expect(registers).toEqual([60, 10, 20, 30, 40, 50]);
     expect(out).toEqual([50, 40, 30, 20, 10, 60]);
+  });
+
+  describe("可以條件跳轉", () => {
+    function runConditionalJumpTest(options: {
+      condition: COND;
+      testValue: Byte;
+      shouldJump: boolean;
+    }) {
+      const lines: OvertureMnemonic[] = [
+        `imm 10`,
+        `mov r0 r4`,
+        `imm 20`,
+        `mov r0 r5`,
+        `imm ${options.testValue}`,
+        `mov r0 r1`,
+        `imm 10`,
+        `mov r0 r2`,
+        `sub`,
+        `imm 12`, // 如果跳則跳到最後
+        options.condition,
+        `mov r4 out`, // 不跳則輸出10
+        `mov r5 out`, // 跳則輸出20
+      ];
+
+      const { out } = run({
+        programLines: lines,
+        maxTicks: 100,
+        afterHook: (_s, _t, out) => {
+          if (out.length) {
+            return "stop";
+          }
+        },
+      });
+
+      expect(out).toEqual([options.shouldJump ? 20 : 10]);
+    }
+
+    test("jmp", () => {
+      runConditionalJumpTest({
+        condition: "jmp",
+        testValue: 10, // 10 - 10 == 0
+        shouldJump: true,
+      });
+      runConditionalJumpTest({
+        condition: "jmp",
+        testValue: 5, // 5 - 10 < 0
+        shouldJump: true,
+      });
+      runConditionalJumpTest({
+        condition: "jmp",
+        testValue: 15, // 15 - 10 > 0
+        shouldJump: true,
+      });
+    });
+
+    test("nop", () => {
+      runConditionalJumpTest({
+        condition: "nop",
+        testValue: 10, // 10 - 10 == 0
+        shouldJump: false,
+      });
+      runConditionalJumpTest({
+        condition: "nop",
+        testValue: 5, // 5 - 10 < 0
+        shouldJump: false,
+      });
+      runConditionalJumpTest({
+        condition: "nop",
+        testValue: 15, // 15 - 10 > 0
+        shouldJump: false,
+      });
+    });
+
+    test("jz when zero", () => {
+      runConditionalJumpTest({
+        condition: "jz",
+        testValue: 10, // 10 - 10 == 0
+        shouldJump: true,
+      });
+    });
+    test("jz when not zero", () => {
+      runConditionalJumpTest({
+        condition: "jz",
+        testValue: 5, // 5 - 10 < 0
+        shouldJump: false,
+      });
+      runConditionalJumpTest({
+        condition: "jz",
+        testValue: 15, // 15 - 10 > 0
+        shouldJump: false,
+      });
+    });
   });
 
   test("每個輸入加5後輸出", () => {

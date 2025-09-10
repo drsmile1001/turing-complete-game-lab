@@ -82,9 +82,7 @@ export function assemble(lines: OvertureMnemonic[]): Byte[] {
       const instruction = 0b10000000 | (operationCode & 0b00000111);
       program.push(instruction & 0xff);
     } else if (
-      ["nop", "jmp", "jeq", "jne", "jgt", "jlt", "jge", "jle"].includes(
-        parts[0]
-      )
+      ["nop", "jmp", "jz", "jnz", "js", "jns", "jsz", "jnsz"].includes(parts[0])
     ) {
       if (parts.length !== 1) {
         throw new Error(`Invalid ${parts[0]} instruction: ${line}`);
