@@ -20,16 +20,3 @@ export interface InputPort {
 export interface OutputPort {
   write(v: Byte): void;
 }
-
-export class QueueInput implements InputPort {
-  constructor(private q: number[]) {}
-  read() {
-    return (this.q.length ? this.q.shift()! : 0) & 0xff;
-  }
-}
-export class CollectOutput implements OutputPort {
-  public out: number[] = [];
-  write(v: Byte) {
-    this.out.push(v & 0xff);
-  }
-}
