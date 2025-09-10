@@ -25,7 +25,7 @@ export function assemble(lines: OvertureMnemonic[]): Byte[] {
         throw new Error(`Invalid source for mov instruction: ${line}`); // output can't be source
       } else if (source.startsWith("r")) {
         sourceCode = parseInt(source.slice(1));
-        if (isNaN(sourceCode) || sourceCode < 0 || sourceCode > 4) {
+        if (isNaN(sourceCode) || sourceCode < 0 || sourceCode > 5) {
           throw new Error(`Invalid source register: ${source}`);
         }
       } else {
@@ -40,7 +40,7 @@ export function assemble(lines: OvertureMnemonic[]): Byte[] {
         if (
           isNaN(destinationCode) ||
           destinationCode < 0 ||
-          destinationCode > 4
+          destinationCode > 5
         ) {
           throw new Error(`Invalid destination register: ${destination}`);
         }

@@ -3,7 +3,7 @@ import type { Byte, CPU, CPUState, InputPort, OutputPort } from "../CPU";
 export class Overture implements CPU {
   private ram: Byte[] = new Array(256).fill(0);
   private programCounter: Byte = 0;
-  private registers: Byte[] = new Array(5).fill(0);
+  private registers: Byte[] = new Array(6).fill(0);
   private input: InputPort = { read: () => 0 };
   private output: OutputPort = { write: (_: Byte) => {} };
 
