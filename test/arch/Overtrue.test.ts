@@ -283,20 +283,18 @@ describe("Overtrue", () => {
 
   test("每個輸入乘6後輸出", () => {
     const lines: OvertureMnemonic[] = [
-      `mov in r1`,
-      `mov r1 r2`,
-      `add`,
-      `mov r3 r2`,
-      `add`,
-      `mov r3 r2`,
-      `add`,
-      `mov r3 r2`,
-      `add`,
-      `mov r3 r2`,
-      `add`,
-      `mov r3 out`,
-      `imm 0`,
-      `jmp`,
+      "start:",
+      "mov in r1", // r1 = input
+      "mov r1 r2", // r2 = input
+      "add", // r3 = input * 2
+      "mov r3 r1", // r1 = input * 2
+      "mov r1 r2", // r2 = input * 2
+      "add", // r3 = input * 4
+      "mov r3 r1", // r1 = input * 4
+      "add", // r3 = input * 6
+      "mov r3 out", // output input * 6
+      "imm start",
+      "jmp",
     ];
 
     const inputs = [1, 10, 5, 20, 40];
