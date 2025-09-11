@@ -2,12 +2,32 @@ import type { Byte } from "../CPU";
 import type { OvertureMnemonic } from "./Mnemonic";
 
 export function assemble(lines: OvertureMnemonic[]): Byte[] {
+  const labels: Record<string, Byte> = {};
+  let lineIndex = -1;
+  const removeLableLines = lines.filter((line) => {
+    const parts = line.split(":");
+    if (parts.length !== 2) {
+      lineIndex++;
+      return true;
+    }
+    const label = parts[0];
+    labels[label] = lineIndex + 1;
+    return false;
+  });
   const program: Byte[] = [];
-  for (const line of lines) {
+
+  for (const line of removeLableLines) {
     const parts = line.split(" ");
     if (parts[0] === "imm") {
-      const value = parseInt(parts[1]);
-      if (isNaN(value) || value < 0 || value > 63) {
+      let value = parseInt(parts[1]);
+      if (isNaN(value)) {
+        const valueFromLabel = labels[parts[1]];
+        if (valueFromLabel === undefined) {
+          throw new Error(`無法找到label ${value} 的行數`);
+        }
+        value = valueFromLabel;
+      }
+      if (value < 0 || value > 63) {
         throw new Error(`Invalid immediate value: ${parts[1]}`);
       }
       program.push(value & 0b00111111);
