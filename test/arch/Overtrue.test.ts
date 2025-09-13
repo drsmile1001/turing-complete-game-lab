@@ -312,4 +312,52 @@ describe("Overtrue", () => {
 
     expect(out).toEqual(inputs.map((v) => (v * 6) & 0xff));
   });
+
+  test("持續取用輸入，取到37時輸出次數", () => {
+    const lines: OvertureMnemonic[] = [
+      "next_value:",
+      "imm 37",
+      "mov r0 r2", // r2 = 37
+      "mov in r1", // r1 = input
+      "sub", // r3 = input - 37,
+      "imm found",
+      "jz", // if input == 37 jump to found
+      "imm 1",
+      "mov r0 r2", // r2 = 1
+      "mov r4 r1", // r1 = count
+      "add", // r3 = count + 1
+      "mov r3 r4", // r4 = count + 1
+      "imm next_value",
+      "jmp",
+      "found:",
+      "mov r4 out", // output count
+      "imm 0",
+      "mov r0 r4", // r4 = count = 0
+      "imm next_value",
+      "jmp",
+    ];
+
+    const randomNumbers = Array.from({ length: 100 }, () =>
+      Math.floor(Math.random() * 256)
+    ).filter((v) => v !== 37);
+    const gaps = [10, 15, 1, 5];
+    const inputs = gaps
+      .map((v) => {
+        const numbers = randomNumbers.splice(0, v);
+        return [...numbers, 37];
+      })
+      .flat();
+
+    const { out } = run({
+      programLines: lines,
+      inputValues: inputs,
+      maxTicks: 1000,
+      afterHook: (_1, _2, out) => {
+        if (out.length >= inputs.length) {
+          return "stop";
+        }
+      },
+    });
+    expect(out).toEqual(gaps);
+  });
 });
