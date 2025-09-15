@@ -1,45 +1,15 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildTestLogger } from "~shared/testkit/TestLogger";
-
-import { type Byte, type CPUState } from "@/arch/CPU";
+import { type Byte } from "@/arch/CPU";
 import {
   type COND,
   MnemonicBuilder,
-  Overture,
   type OvertureMnemonic,
-  assemble,
 } from "@/arch/Overtrue";
-import { QueuePort } from "@/arch/QueuePort";
+
+import { run } from "./TestProgramRunner";
 
 describe("Overtrue", () => {
-  const logger = buildTestLogger().extend("Overtrue");
-  function run(options: {
-    programLines: OvertureMnemonic[];
-    inputValues?: Byte[];
-    maxTicks: number;
-    afterHook?: (state: CPUState, tick: number, out: Byte[]) => "stop" | void;
-  }) {
-    logger.debug()`Program:\n${options.programLines.join("\n")}\n`;
-    const program = assemble(options.programLines);
-    const overture = new Overture();
-    overture.load(program);
-    const input = new QueuePort(options.inputValues ?? []);
-    overture.attachInput(input);
-    const output = new QueuePort();
-    overture.attachOutput(output);
-    for (let tick = 0; tick < options.maxTicks; tick++) {
-      overture.step();
-      const state: CPUState = overture.snapshot();
-      logger.debug({ state, out: output.values })`Tick ${tick}`;
-      const result = options.afterHook?.(state, tick, output.values);
-      if (result === "stop") {
-        break;
-      }
-    }
-    return { overture, input, out: output.values };
-  }
-
   test("可以存取所有寄存器", () => {
     const lines: OvertureMnemonic[] = [
       `imm 10`,
@@ -254,112 +224,5 @@ describe("Overtrue", () => {
         shouldJump: true,
       });
     });
-  });
-
-  test("每個輸入加5後輸出", () => {
-    const lines: OvertureMnemonic[] = [
-      `imm 5`,
-      `mov r0 r2`,
-      `mov in r1`,
-      `add`,
-      `mov r3 out`,
-      `imm 0`,
-      `jmp`,
-    ];
-
-    const inputs = [1, 10, 5, 20, 125];
-
-    const { out } = run({
-      programLines: lines,
-      inputValues: inputs,
-      maxTicks: 100,
-      afterHook: (_1, _2, out) => {
-        if (out.length >= inputs.length) {
-          return "stop";
-        }
-      },
-    });
-
-    expect(out).toEqual(inputs.map((v) => (v + 5) & 0xff));
-  });
-
-  test("每個輸入乘6後輸出", () => {
-    const lines: OvertureMnemonic[] = [
-      "start:",
-      "mov in r1", // r1 = input
-      "mov r1 r2", // r2 = input
-      "add", // r3 = input * 2
-      "mov r3 r1", // r1 = input * 2
-      "mov r1 r2", // r2 = input * 2
-      "add", // r3 = input * 4
-      "mov r3 r1", // r1 = input * 4
-      "add", // r3 = input * 6
-      "mov r3 out", // output input * 6
-      "imm start",
-      "jmp",
-    ];
-
-    const inputs = [1, 10, 5, 20, 40];
-
-    const { out } = run({
-      programLines: lines,
-      inputValues: inputs,
-      maxTicks: 100,
-      afterHook: (_1, _2, out) => {
-        if (out.length >= inputs.length) {
-          return "stop";
-        }
-      },
-    });
-
-    expect(out).toEqual(inputs.map((v) => (v * 6) & 0xff));
-  });
-
-  test("持續取用輸入，取到37時輸出讀取次數", () => {
-    const lines = new MnemonicBuilder()
-      .label("next_value")
-      .imm(1)
-      .mov("r0", "r2") // r2 = 1
-      .mov("r4", "r1") // r1 = count
-      .add() // r3 = count + 1
-      .mov("r3", "r4") // r4 = count + 1
-      .imm(37)
-      .mov("r0", "r2") // r2 = 37
-      .mov("in", "r1") // r1 = input
-      .sub() // r3 = input - 37,
-      .imm("found")
-      .jz() // if input == 37 jump to found
-      .imm("next_value")
-      .jmp()
-      .label("found")
-      .mov("r4", "out") // output count
-      .imm(0)
-      .mov("r0", "r4") // r4 = count = 0
-      .imm("next_value")
-      .jmp()
-      .toLines();
-
-    const randomNumbers = Array.from({ length: 100 }, () =>
-      Math.floor(Math.random() * 256)
-    ).filter((v) => v !== 37);
-    const gaps = [10, 15, 1, 5];
-    const inputs = gaps
-      .map((v) => {
-        const numbers = randomNumbers.splice(0, v);
-        return [...numbers, 37];
-      })
-      .flat();
-
-    const { out } = run({
-      programLines: lines,
-      inputValues: inputs,
-      maxTicks: 1000,
-      afterHook: (_1, _2, out) => {
-        if (out.length >= inputs.length) {
-          return "stop";
-        }
-      },
-    });
-    expect(out).toEqual(gaps.map((v) => v + 1));
   });
 });
