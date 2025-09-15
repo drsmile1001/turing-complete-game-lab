@@ -5,6 +5,7 @@ import { buildTestLogger } from "~shared/testkit/TestLogger";
 import { type Byte, type CPUState } from "@/arch/CPU";
 import {
   type COND,
+  MnemonicBuilder,
   Overture,
   type OvertureMnemonic,
   assemble,
@@ -314,28 +315,28 @@ describe("Overtrue", () => {
   });
 
   test("持續取用輸入，取到37時輸出次數", () => {
-    const lines: OvertureMnemonic[] = [
-      "next_value:",
-      "imm 37",
-      "mov r0 r2", // r2 = 37
-      "mov in r1", // r1 = input
-      "sub", // r3 = input - 37,
-      "imm found",
-      "jz", // if input == 37 jump to found
-      "imm 1",
-      "mov r0 r2", // r2 = 1
-      "mov r4 r1", // r1 = count
-      "add", // r3 = count + 1
-      "mov r3 r4", // r4 = count + 1
-      "imm next_value",
-      "jmp",
-      "found:",
-      "mov r4 out", // output count
-      "imm 0",
-      "mov r0 r4", // r4 = count = 0
-      "imm next_value",
-      "jmp",
-    ];
+    const lines = new MnemonicBuilder()
+      .label("next_value")
+      .imm(37)
+      .mov("r0", "r2") // r2 = 37
+      .mov("in", "r1") // r1 = input
+      .sub() // r3 = input - 37,
+      .imm("found")
+      .jz() // if input == 37 jump to found
+      .imm(1)
+      .mov("r0", "r2") // r2 = 1
+      .mov("r4", "r1") // r1 = count
+      .add() // r3 = count + 1
+      .mov("r3", "r4") // r4 = count + 1
+      .imm("next_value")
+      .jmp()
+      .label("found")
+      .mov("r4", "out") // output count
+      .imm(0)
+      .mov("r0", "r4") // r4 = count = 0
+      .imm("next_value")
+      .jmp()
+      .toLines();
 
     const randomNumbers = Array.from({ length: 100 }, () =>
       Math.floor(Math.random() * 256)
