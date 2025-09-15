@@ -20,6 +20,7 @@ describe("Overtrue", () => {
     maxTicks: number;
     afterHook?: (state: CPUState, tick: number, out: Byte[]) => "stop" | void;
   }) {
+    logger.debug()`Program:\n${options.programLines.join("\n")}\n`;
     const program = assemble(options.programLines);
     const overture = new Overture();
     overture.load(program);
@@ -30,7 +31,7 @@ describe("Overtrue", () => {
     for (let tick = 0; tick < options.maxTicks; tick++) {
       overture.step();
       const state: CPUState = overture.snapshot();
-      logger.info({ state, out: output.values })`Tick ${tick}`;
+      logger.debug({ state, out: output.values })`Tick ${tick}`;
       const result = options.afterHook?.(state, tick, output.values);
       if (result === "stop") {
         break;
@@ -314,20 +315,20 @@ describe("Overtrue", () => {
     expect(out).toEqual(inputs.map((v) => (v * 6) & 0xff));
   });
 
-  test("持續取用輸入，取到37時輸出次數", () => {
+  test("持續取用輸入，取到37時輸出讀取次數", () => {
     const lines = new MnemonicBuilder()
       .label("next_value")
+      .imm(1)
+      .mov("r0", "r2") // r2 = 1
+      .mov("r4", "r1") // r1 = count
+      .add() // r3 = count + 1
+      .mov("r3", "r4") // r4 = count + 1
       .imm(37)
       .mov("r0", "r2") // r2 = 37
       .mov("in", "r1") // r1 = input
       .sub() // r3 = input - 37,
       .imm("found")
       .jz() // if input == 37 jump to found
-      .imm(1)
-      .mov("r0", "r2") // r2 = 1
-      .mov("r4", "r1") // r1 = count
-      .add() // r3 = count + 1
-      .mov("r3", "r4") // r4 = count + 1
       .imm("next_value")
       .jmp()
       .label("found")
@@ -359,6 +360,6 @@ describe("Overtrue", () => {
         }
       },
     });
-    expect(out).toEqual(gaps);
+    expect(out).toEqual(gaps.map((v) => v + 1));
   });
 });
