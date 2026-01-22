@@ -6,7 +6,6 @@ plugins:
 importOrder:
   - "^bun$"
   - "<THIRD_PARTY_MODULES>"
-  - "^~shared/"
   - "^@/"
   - "^~test/"
   - "^[./]"

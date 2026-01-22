@@ -5,8 +5,7 @@
     "moduleResolution": "bundler",
     "paths": {
       "@/*": ["./src/*"],
-      "~test/*": ["./test/*"],
-      "~shared/*": ["./shared/src/*"]
+      "~test/*": ["./test/*"]
     },
     "types": ["bun-types"],
     "verbatimModuleSyntax": true,
