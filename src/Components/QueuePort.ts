@@ -1,6 +1,7 @@
 import { UInt, uint } from "@/UInt";
 
-import type { InputPort, OutputPort } from "./CPU";
+import type { InputPort } from "./InputPort";
+import type { OutputPort } from "./OutputPort";
 
 export class QueuePort<Bits extends number>
   implements InputPort<Bits>, OutputPort<Bits>

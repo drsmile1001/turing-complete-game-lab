@@ -1,14 +1,11 @@
 import type { Logger } from "@drsmile1001/logger";
 
-import {
-  type CPU,
-  type CPUState,
-  type InputPort,
-  type OutputPort,
-} from "@/CPU";
-import { type UInt, type UIntCompatible, uint } from "@/UInt";
+import { type CPU } from "@/Components/CPU";
+import { type UInt, type UInt8, type UIntCompatible, uint } from "@/UInt";
 
-import { QueuePort } from "./QueuePort";
+import { type InputPort } from "./Components/InputPort";
+import { type OutputPort } from "./Components/OutputPort";
+import { QueuePort } from "./Components/QueuePort";
 
 export type RunProgramOptions<Bits extends number, Mnemonic extends string> = {
   bits: Bits;
@@ -17,11 +14,7 @@ export type RunProgramOptions<Bits extends number, Mnemonic extends string> = {
   assemble: (lines: Mnemonic[]) => UInt<Bits>[];
   logger?: Logger;
   maxTicks?: number;
-  afterHook?: (
-    state: CPUState<Bits>,
-    tick: number,
-    out: UInt<Bits>[]
-  ) => "STOP" | void;
+  afterHook?: (tick: number, out: UInt<Bits>[]) => "STOP" | void;
   input?: InputPort<Bits> | UIntCompatible[];
   output?: OutputPort<Bits>;
 };
@@ -33,14 +26,10 @@ export function runProgram<
   bits: Bits;
   cpu: CPU<Bits>;
   programLines: Mnemonic[];
-  assemble: (lines: Mnemonic[]) => UInt<Bits>[];
+  assemble: (lines: Mnemonic[]) => UInt8[];
   logger?: Logger;
   maxTicks?: number;
-  afterHook?: (
-    state: CPUState<Bits>,
-    tick: number,
-    out: UInt<Bits>[]
-  ) => "STOP" | void;
+  afterHook?: (tick: number, out: UInt<Bits>[]) => "STOP" | void;
   input?: InputPort<Bits> | UIntCompatible[];
   output?: OutputPort<Bits>;
 }) {
@@ -56,7 +45,7 @@ export function runProgram<
     output,
   } = options;
   const programBinary = assemble(programLines);
-  cpu.load(programBinary);
+  cpu.loadProgram(programBinary);
   if (input) {
     if (Array.isArray(input)) {
       const queueInputPort = new QueuePort(
@@ -79,9 +68,8 @@ export function runProgram<
   const maxTicksFinal = maxTicks ?? 1000;
   for (let tick = 0; tick < maxTicksFinal; tick++) {
     cpu.tick();
-    const state: CPUState<Bits> = cpu.snapshot();
-    logger?.debug({ state, tick }, `Tick ${tick}`);
-    const result = afterHook?.(state, tick, outputQueuePort.values);
+    logger?.debug({ tick }, `Tick ${tick}`);
+    const result = afterHook?.(tick, outputQueuePort.values);
     if (result === "STOP") {
       break;
     }

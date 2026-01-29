@@ -33,14 +33,14 @@ describe("Overtrue", () => {
     const { cpu, out } = runOvertureProgram({
       logger,
       programLines: lines,
-      afterHook: (_s, _t, out) => {
+      afterHook: (_t, out) => {
         if (out.length >= 6) {
           return "STOP";
         }
       },
     });
 
-    const { registers } = cpu.snapshot();
+    const { registers } = cpu.getState();
     expect(registers.map((r) => r.toNumber())).toEqual([
       60, 10, 20, 30, 40, 50,
     ]);
@@ -72,7 +72,7 @@ describe("Overtrue", () => {
       const { out } = runOvertureProgram({
         logger,
         programLines: lines,
-        afterHook: (_s, _t, out) => {
+        afterHook: (_t, out) => {
           if (out.length) {
             return "STOP";
           }

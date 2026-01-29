@@ -1,12 +1,23 @@
-import type { CPU, CPUState, InputPort, OutputPort } from "@/CPU";
+import type { CPU } from "@/Components/CPU";
+import type { InputPort } from "@/Components/InputPort";
+import type { OutputPort } from "@/Components/OutputPort";
+import { RamDefault } from "@/Components/Ram";
 import { type UInt8, uint8 } from "@/UInt";
 
 export class Overture implements CPU<8> {
-  private ram: UInt8[] = new Array(256).fill(uint8(0));
+  private ram = new RamDefault(256);
   private programCounter = uint8(0);
   private registers: UInt8[] = new Array(6).fill(uint8(0));
   private input: InputPort<8> = { read: () => uint8(0) };
   private output: OutputPort<8> = { write: (_: UInt8) => {} };
+
+  getState() {
+    return {
+      programCounter: this.programCounter,
+      registers: this.registers.slice(),
+      ram: this.ram.dump(),
+    };
+  }
 
   attachInput(port: InputPort<8>) {
     this.input = port;
@@ -14,28 +25,13 @@ export class Overture implements CPU<8> {
   attachOutput(port: OutputPort<8>) {
     this.output = port;
   }
-  load(program: UInt8[]): void {
-    this.ram.fill(uint8(0));
-    this.programCounter = uint8(0);
-    this.registers.fill(uint8(0));
-    for (let i = 0; i < this.ram.length && i < program.length; i++) {
-      this.ram[i] = program[i];
-    }
-  }
-  reset(): void {
-    this.ram.fill(uint8(0));
-    this.programCounter = uint8(0);
-    this.registers.fill(uint8(0));
-  }
-  snapshot(): CPUState<8> {
-    return {
-      programCounter: this.programCounter,
-      registers: [...this.registers],
-    };
+
+  loadProgram(program: UInt8[]): void {
+    this.ram.load(program);
   }
 
   tick() {
-    const instruction = this.ram[this.programCounter.toNumber()];
+    const instruction = this.ram.read(this.programCounter.toNumber(), 8);
     this.programCounter = this.programCounter.add(1);
     const opcode = instruction.and(0b11000000).shr(6).toNumber();
     switch (opcode) {

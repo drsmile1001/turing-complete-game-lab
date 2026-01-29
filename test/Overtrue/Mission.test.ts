@@ -1,7 +1,8 @@
 import { buildTestLogger } from "@drsmile1001/testkit";
 import { describe, expect, test } from "bun:test";
 
-import { type InputPort, type OutputPort } from "@/CPU";
+import { type InputPort } from "@/Components/InputPort";
+import { type OutputPort } from "@/Components/OutputPort";
 import { MnemonicBuilder, type OvertureMnemonic } from "@/Overtrue";
 import { type UInt8, uint8 } from "@/UInt";
 
@@ -27,7 +28,7 @@ describe("Overtrue.Mission", () => {
       logger,
       programLines: lines,
       input,
-      afterHook: (_1, _2, out) => {
+      afterHook: (_1, out) => {
         if (out.length >= input.length) {
           return "STOP";
         }
@@ -60,7 +61,7 @@ describe("Overtrue.Mission", () => {
       programLines: lines,
       input: input,
       maxTicks: 100,
-      afterHook: (_1, _2, out) => {
+      afterHook: (_1, out) => {
         if (out.length >= input.length) {
           return "STOP";
         }
@@ -111,7 +112,7 @@ describe("Overtrue.Mission", () => {
       logger,
       programLines: lines,
       input,
-      afterHook: (_1, _2, out) => {
+      afterHook: (_1, out) => {
         if (out.length >= input.length) {
           return "STOP";
         }
@@ -192,7 +193,7 @@ describe("Overtrue.Mission", () => {
       programLines: lines,
       input,
       maxTicks: 100,
-      afterHook: (_1, _2, out) => {
+      afterHook: (_1, out) => {
         if (out.length >= input.length) {
           return "STOP";
         }
@@ -200,7 +201,7 @@ describe("Overtrue.Mission", () => {
     });
 
     expect(out.map((v) => v.toNumber())).toEqual(
-      input.map((v) => v % 4 & 0xff)
+      input.map((v) => (v % 4) & 0xff)
     );
   });
 
@@ -270,7 +271,7 @@ describe("Overtrue.Mission", () => {
       programLines: lines,
       input,
       maxTicks: 1000,
-      afterHook: (_1, _2, out) => {
+      afterHook: (_1, out) => {
         if (out.length >= inputPairs.length) {
           return "STOP";
         }
