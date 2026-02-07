@@ -1,2 +1,5 @@
-[test]
-root = "test"
+[loader]
+".isa" = "text"
+
+[console]
+depth = 10

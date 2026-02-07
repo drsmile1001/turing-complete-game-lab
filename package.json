@@ -4,7 +4,8 @@
   "description": "Hello World Bun Template",
   "scripts": {
     "index": "bun run src/index.ts",
-    "format": "bunx prettier . --write"
+    "format": "bunx prettier . --write",
+    "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
     "@drsmile1001/logger": "^0.1.0",
@@ -16,7 +17,7 @@
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
-    "bun-types": "^1.3.6",
+    "@types/bun": "^1.3.8",
     "prettier": "^3.8.1"
   }
 }

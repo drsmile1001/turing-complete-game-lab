@@ -279,7 +279,7 @@ describe("Overtrue.Mission", () => {
     });
 
     expect(out.map((v) => v.toNumber())).toEqual(
-      inputPairs.map(([a, b]) => (a ^ b) & 0xff)
+      inputPairs.map(([a, b]) => (a! ^ b!) & 0xff)
     );
   });
 });

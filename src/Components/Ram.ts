@@ -21,7 +21,7 @@ export class RamDefault implements Ram {
   load(data: UIntCompatible[]): void {
     this.bytes.fill(uint8(0));
     for (let i = 0; i < this.size && i < data.length; i++) {
-      this.bytes[i] = uint8(data[i]);
+      this.bytes[i] = uint8(data[i]!);
     }
   }
   //TODO: 處理溢位
@@ -29,7 +29,7 @@ export class RamDefault implements Ram {
     const bytes = bits / 8;
     let output = uint(bits, 0);
     for (let i = bytes - 1; i >= 0; i--) {
-      output = output.shl(8).or(this.bytes[address + i]);
+      output = output.shl(8).or(this.bytes[address + i]!);
     }
     return output as UInt<Bits>;
   }

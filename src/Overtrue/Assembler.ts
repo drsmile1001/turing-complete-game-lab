@@ -11,7 +11,7 @@ export function assemble(lines: OvertureMnemonic[]): UInt8[] {
       lineIndex++;
       return true;
     }
-    const label = parts[0];
+    const label = parts[0]!;
     labels[label] = uint8(lineIndex + 1);
     return false;
   });
@@ -20,9 +20,9 @@ export function assemble(lines: OvertureMnemonic[]): UInt8[] {
   for (const line of removeLableLines) {
     const parts = line.split(" ");
     if (parts[0] === "imm") {
-      let value = parseInt(parts[1]);
+      let value = parseInt(parts[1]!);
       if (isNaN(value)) {
-        const valueFromLabel = labels[parts[1]];
+        const valueFromLabel = labels[parts[1]!];
         if (valueFromLabel === undefined) {
           throw new Error(`無法找到label ${value} 的行數`);
         }
@@ -36,16 +36,16 @@ export function assemble(lines: OvertureMnemonic[]): UInt8[] {
       if (parts.length !== 3) {
         throw new Error(`Invalid mov instruction: ${line}`);
       }
-      const source = parts[1];
-      const destination = parts[2];
+      const source = parts[1]!;
+      const destination = parts[2]!;
       let sourceCode: number;
       let destinationCode: number;
       if (source === "in") {
         sourceCode = 0b110;
       } else if (source === "out") {
         throw new Error(`Invalid source for mov instruction: ${line}`); // output can't be source
-      } else if (source.startsWith("r")) {
-        sourceCode = parseInt(source.slice(1));
+      } else if (source!.startsWith("r")) {
+        sourceCode = parseInt(source!.slice(1));
         if (isNaN(sourceCode) || sourceCode < 0 || sourceCode > 5) {
           throw new Error(`Invalid source register: ${source}`);
         }
@@ -73,7 +73,7 @@ export function assemble(lines: OvertureMnemonic[]): UInt8[] {
         ((sourceCode & 0b00000111) << 3) |
         (destinationCode & 0b00000111);
       program.push(uint8(instruction));
-    } else if (["nand", "and", "or", "nor", "add", "sub"].includes(parts[0])) {
+    } else if (["nand", "and", "or", "nor", "add", "sub"].includes(parts[0]!)) {
       if (parts.length !== 1) {
         throw new Error(`Invalid ${parts[0]} instruction: ${line}`);
       }
@@ -103,7 +103,9 @@ export function assemble(lines: OvertureMnemonic[]): UInt8[] {
       const instruction = 0b10000000 | (operationCode & 0b00000111);
       program.push(uint8(instruction));
     } else if (
-      ["nop", "jmp", "jz", "jnz", "js", "jns", "jsz", "jnsz"].includes(parts[0])
+      ["nop", "jmp", "jz", "jnz", "js", "jns", "jsz", "jnsz"].includes(
+        parts[0]!
+      )
     ) {
       if (parts.length !== 1) {
         throw new Error(`Invalid ${parts[0]} instruction: ${line}`);

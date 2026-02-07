@@ -71,8 +71,8 @@ export class Overture implements CPU<8> {
 
   private calculate(instruction: UInt8) {
     const operation = instruction.and(0b00000111).toNumber();
-    const a = this.registers[1];
-    const b = this.registers[2];
+    const a = this.registers[1]!;
+    const b = this.registers[2]!;
     let result = uint8(0);
     switch (operation) {
       case 0b000: // NAND
@@ -101,7 +101,7 @@ export class Overture implements CPU<8> {
 
   private conditional(instruction: UInt8) {
     const condition = instruction.and(0b00000111).toNumber();
-    const test = this.registers[3];
+    const test = this.registers[3]!;
     const sign = test.and(0b10000000).shr(7).toNumber();
     let shouldJump = false;
     switch (condition) {
@@ -130,7 +130,7 @@ export class Overture implements CPU<8> {
         break;
     }
     if (shouldJump) {
-      this.programCounter = this.registers[0];
+      this.programCounter = this.registers[0]!;
     }
   }
 }
