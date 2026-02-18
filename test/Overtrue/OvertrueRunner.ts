@@ -4,28 +4,29 @@ import { Overture, type OvertureMnemonic, assembleOvertrue } from "@/Overtrue";
 import { type RunProgramOptions, runProgram } from "@/ProgramRunner";
 
 export type RunOvertureOptions = Pick<
-  RunProgramOptions<8, OvertureMnemonic, Overture>,
-  "programLines" | "maxTicks" | "afterHook" | "input" | "output" | "logger"
->;
+  RunProgramOptions<Overture>,
+  "maxTicks" | "afterHook" | "input" | "output" | "logger"
+> & {
+  program: OvertureMnemonic[] | string;
+};
 
 export function runOvertureProgram(options: RunOvertureOptions) {
   const cpu = new Overture();
+  const { program, ...rest } = options;
+
+  const binaryResult =
+    typeof program === "string"
+      ? assembleOvertrue(program)
+      : assembleOvertrue(program.join("\n"));
+
+  if (isErr(binaryResult)) {
+    throw new Error(binaryResult.error);
+  }
+  const binary = binaryResult.value;
   const { out } = runProgram({
-    logger: options.logger,
-    bits: 8,
+    ...rest,
     cpu,
-    programLines: options.programLines,
-    assemble: (lines) => {
-      const result = assembleOvertrue(lines.join("\n"));
-      if (isErr(result)) {
-        throw new Error(result.error);
-      }
-      return result.value;
-    },
-    maxTicks: options.maxTicks,
-    afterHook: options.afterHook,
-    input: options.input,
-    output: options.output,
+    binary,
   });
   return { cpu, out };
 }

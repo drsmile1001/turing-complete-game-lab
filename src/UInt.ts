@@ -104,6 +104,7 @@ export class UInt<Bits extends number> {
 export type UInt8 = UInt<8>;
 export type UInt16 = UInt<16>;
 export type UInt32 = UInt<32>;
+export type UInt64 = UInt<64>;
 
 export function uint<TBits extends number>(bits: TBits, value: UIntCompatible) {
   return new UInt<TBits>(bits, value);
@@ -119,6 +120,10 @@ export function uint16(value: UIntCompatible) {
 
 export function uint32(value: UIntCompatible) {
   return new UInt(32, value);
+}
+
+export function uint64(value: UIntCompatible) {
+  return new UInt(64, value);
 }
 
 export const vaildDataWidth = [8, 16, 24, 32, 40, 48, 56, 64] as const;

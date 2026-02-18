@@ -1,15 +1,26 @@
 import type { CPU } from "@/Components/CPU";
-import type { InputPort } from "@/Components/InputPort";
-import type { OutputPort } from "@/Components/OutputPort";
+import {
+  EmptyIO,
+  type LevelInput,
+  type LevelOutput,
+} from "@/Components/LevelIO";
 import { RamDefault } from "@/Components/Ram";
 import { type UInt8, uint8 } from "@/UInt";
 
-export class Overture implements CPU<8> {
+export type OvertureState = {
+  programCounter: UInt8;
+  registers: UInt8[];
+  ram: UInt8[];
+  lastInstruction: UInt8;
+  lastInstructionDescription: string;
+};
+
+export class Overture implements CPU {
   private ram = new RamDefault(256);
   private programCounter = uint8(0);
   private registers: UInt8[] = new Array(6).fill(uint8(0));
-  private input: InputPort<8> = { read: () => uint8(0) };
-  private output: OutputPort<8> = { write: (_: UInt8) => {} };
+  private input: LevelInput = new EmptyIO();
+  private output: LevelOutput = new EmptyIO();
   private lastInstruction: UInt8 = uint8(0);
   private lastInstructionDescription: string = "";
 
@@ -22,12 +33,20 @@ export class Overture implements CPU<8> {
       lastInstructionDescription: this.lastInstructionDescription,
     };
   }
-
-  attachInput(port: InputPort<8>) {
-    this.input = port;
+  getDebugInfo(): Record<string, unknown> {
+    return {
+      programCounter: this.programCounter.toNumber(),
+      registers: this.registers.map((r) => r.toNumber()),
+      lastInstruction: this.lastInstruction.toNumber(),
+      lastInstructionDescription: this.lastInstructionDescription,
+    };
   }
-  attachOutput(port: OutputPort<8>) {
-    this.output = port;
+
+  attachInput(input: LevelInput) {
+    this.input = input;
+  }
+  attachOutput(ouput: LevelOutput) {
+    this.output = ouput;
   }
 
   loadProgram(program: UInt8[]): void {
@@ -65,7 +84,7 @@ export class Overture implements CPU<8> {
     const source = instruction.and(0b00111000).shr(3).toNumber();
     const sourceValue =
       source === 0b110
-        ? this.input.read()
+        ? uint8(this.input.read())
         : (this.registers[source] ?? uint8(0));
     const destination = instruction.and(0b00000111).toNumber();
     if (destination === 0b110) {

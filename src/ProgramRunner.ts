@@ -1,59 +1,41 @@
 import type { Logger } from "@drsmile1001/logger";
 
-import { type CPU } from "@/Components/CPU";
-import { type UInt, type UInt8, type UIntCompatible, uint } from "@/UInt";
+import { type CPU, type CPUState } from "@/Components/CPU";
+import { type UInt, type UInt8, type UIntCompatible } from "@/UInt";
 
-import { type InputPort } from "./Components/InputPort";
-import { type OutputPort } from "./Components/OutputPort";
-import { QueuePort } from "./Components/QueuePort";
+import {
+  type LevelInput,
+  type LevelOutput,
+  QueueIO,
+} from "./Components/LevelIO";
 
-export type RunProgramOptions<
-  Bits extends number,
-  Mnemonic extends string,
-  TCPU extends CPU<Bits>,
-> = {
-  bits: Bits;
+export type RunProgramOptions<TCPU extends CPU> = {
   cpu: TCPU;
-  programLines: Mnemonic[];
-  assemble: (lines: Mnemonic[]) => UInt8[];
+  binary: UInt8[];
   logger?: Logger;
   maxTicks?: number;
-  afterHook?: (tick: number, out: UInt<Bits>[], cpu: TCPU) => "STOP" | void;
-  input?: InputPort<Bits> | UIntCompatible[];
-  output?: OutputPort<Bits>;
+  afterHook?: (ctx: {
+    cpu: TCPU;
+    tick: number;
+    out: UInt<number>[];
+    state: CPUState<TCPU>;
+  }) => "STOP" | void;
+  input?: LevelInput | UIntCompatible[];
+  output?: LevelOutput;
 };
 
-export function runProgram<
-  Bits extends number,
-  Mnemonic extends string,
-  TCPU extends CPU<Bits>,
->(options: RunProgramOptions<Bits, Mnemonic, TCPU>) {
-  const {
-    logger,
-    bits,
-    cpu,
-    programLines,
-    assemble,
-    maxTicks,
-    afterHook,
-    input,
-    output,
-  } = options;
-  const programBinary = assemble(programLines);
-  cpu.loadProgram(programBinary);
+export function runProgram<TCPU extends CPU>(options: RunProgramOptions<TCPU>) {
+  const { logger, cpu, binary, maxTicks, afterHook, input, output } = options;
+  cpu.loadProgram(binary);
   if (input) {
     if (Array.isArray(input)) {
-      const queueInputPort = new QueuePort(
-        bits,
-        input.map((v) => uint(bits, v))
-      );
-      cpu.attachInput(queueInputPort);
+      cpu.attachInput(new QueueIO(input));
     } else cpu.attachInput(input);
   }
-  const outputQueuePort = new QueuePort(bits);
+  const outputQueuePort = new QueueIO();
   if (output)
     cpu.attachOutput({
-      write: (v: UInt<Bits>) => {
+      write: (v: UInt<number>) => {
         outputQueuePort.write(v);
         output.write(v);
       },
@@ -63,8 +45,17 @@ export function runProgram<
   const maxTicksFinal = maxTicks ?? 1000;
   for (let tick = 0; tick < maxTicksFinal; tick++) {
     cpu.tick();
-    logger?.debug({ tick }, `Tick ${tick}`);
-    const result = afterHook?.(tick, outputQueuePort.values, cpu);
+    const state = cpu.getState();
+    if (cpu.getDebugInfo && logger) {
+      const debugInfo = cpu.getDebugInfo();
+      logger?.debug({ tick, ...debugInfo }, `Tick ${tick}`);
+    }
+    const result = afterHook?.({
+      tick,
+      out: outputQueuePort.values,
+      cpu,
+      state: state as CPUState<TCPU>,
+    });
     if (result === "STOP") {
       break;
     }

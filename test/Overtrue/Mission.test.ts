@@ -1,10 +1,9 @@
 import { buildTestLogger } from "@drsmile1001/testkit";
 import { describe, expect, test } from "bun:test";
 
-import { type InputPort } from "@/Components/InputPort";
-import { type OutputPort } from "@/Components/OutputPort";
+import { type LevelInput, type LevelOutput } from "@/Components/LevelIO";
 import { MnemonicBuilder, type OvertureMnemonic } from "@/Overtrue";
-import { type UInt8, uint8 } from "@/UInt";
+import { type UInt8, uint64 } from "@/UInt";
 
 import { runOvertureProgram } from "./OvertrueRunner";
 
@@ -26,9 +25,9 @@ describe("Overtrue.Mission", () => {
 
     const { out } = runOvertureProgram({
       logger,
-      programLines: lines,
+      program: lines,
       input,
-      afterHook: (_1, out) => {
+      afterHook: ({ out }) => {
         if (out.length >= input.length) {
           return "STOP";
         }
@@ -58,10 +57,10 @@ describe("Overtrue.Mission", () => {
 
     const { out } = runOvertureProgram({
       logger,
-      programLines: lines,
+      program: lines,
       input: input,
       maxTicks: 100,
-      afterHook: (_1, out) => {
+      afterHook: ({ out }) => {
         if (out.length >= input.length) {
           return "STOP";
         }
@@ -110,9 +109,9 @@ describe("Overtrue.Mission", () => {
 
     const { out } = runOvertureProgram({
       logger,
-      programLines: lines,
+      program: lines,
       input,
-      afterHook: (_1, out) => {
+      afterHook: ({ out }) => {
         if (out.length >= input.length) {
           return "STOP";
         }
@@ -134,12 +133,12 @@ describe("Overtrue.Mission", () => {
       .jmp()
       .toLines();
 
-    class DoorPort implements InputPort<8>, OutputPort<8> {
+    class LevelDoor implements LevelInput, LevelOutput {
       number: number = 0;
       lastGuessIsTooHigh = false;
       match = false;
-      read(): UInt8 {
-        return this.lastGuessIsTooHigh ? uint8(1) : uint8(0);
+      read() {
+        return this.lastGuessIsTooHigh ? uint64(1) : uint64(0);
       }
       write(v: UInt8): void {
         const guess = v;
@@ -152,18 +151,18 @@ describe("Overtrue.Mission", () => {
         this.lastGuessIsTooHigh = false;
       }
     }
-    const doorPort = new DoorPort();
+    const doorPort = new LevelDoor();
 
     const testNumbers = [0, 1, 10, 50, 100, 200, 250, 255];
     for (const n of testNumbers) {
       doorPort.setNumber(n);
       runOvertureProgram({
         logger,
-        programLines: lines,
+        program: lines,
         input: doorPort,
         output: doorPort,
         maxTicks: 2000,
-        afterHook: (_state, tick) => {
+        afterHook: ({ tick }) => {
           if (doorPort.match) {
             logger.debug(`Guessed number ${n} in ${tick} ticks`);
             return "STOP";
@@ -190,16 +189,10 @@ describe("Overtrue.Mission", () => {
 
     const { out } = runOvertureProgram({
       logger,
-      programLines: lines,
+      program: lines,
       input,
       maxTicks: 100,
-      afterHook: (tick, out, cpu) => {
-        const state = cpu.getState();
-        console.debug({
-          tick,
-          registers: state.registers.map((r) => r.toNumber()),
-          lastInstructionDescription: state.lastInstructionDescription,
-        });
+      afterHook: ({ out }) => {
         if (out.length >= input.length) {
           return "STOP";
         }
@@ -274,10 +267,10 @@ describe("Overtrue.Mission", () => {
 
     const { out } = runOvertureProgram({
       logger,
-      programLines: lines,
+      program: lines,
       input,
       maxTicks: 1000,
-      afterHook: (_1, out) => {
+      afterHook: ({ out }) => {
         if (out.length >= inputPairs.length) {
           return "STOP";
         }

@@ -32,8 +32,8 @@ describe("Overtrue", () => {
 
     const { cpu, out } = runOvertureProgram({
       logger,
-      programLines: lines,
-      afterHook: (_t, out) => {
+      program: lines,
+      afterHook: ({ out }) => {
         if (out.length >= 6) {
           return "STOP";
         }
@@ -71,8 +71,8 @@ describe("Overtrue", () => {
 
       const { out } = runOvertureProgram({
         logger,
-        programLines: lines,
-        afterHook: (_t, out) => {
+        program: lines,
+        afterHook: ({ out }) => {
           if (out.length) {
             return "STOP";
           }

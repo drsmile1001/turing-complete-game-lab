@@ -2,7 +2,7 @@ trailingComma: "es5"
 semi: true
 singleQuote: false
 plugins:
-  - "./node_modules/@trivago/prettier-plugin-sort-imports/lib/src/index.js"
+  - "@trivago/prettier-plugin-sort-imports"
 importOrder:
   - "^bun$"
   - "<THIRD_PARTY_MODULES>"

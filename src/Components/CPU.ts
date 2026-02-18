@@ -1,11 +1,14 @@
 import type { UInt8 } from "@/UInt";
 
-import type { InputPort } from "./InputPort";
-import type { OutputPort } from "./OutputPort";
+import type { LevelInput, LevelOutput } from "./LevelIO";
 
-export interface CPU<Bits extends number> {
+export interface CPU {
   loadProgram(program: UInt8[]): void;
   tick(): void;
-  attachInput(port: InputPort<Bits>): void;
-  attachOutput(port: OutputPort<Bits>): void;
+  attachInput(input: LevelInput): void;
+  attachOutput(output: LevelOutput): void;
+  getState(): unknown;
+  getDebugInfo?(): Record<string, unknown>;
 }
+
+export type CPUState<T extends CPU> = ReturnType<T["getState"]>;
