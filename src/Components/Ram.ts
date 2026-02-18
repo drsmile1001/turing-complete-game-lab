@@ -1,6 +1,11 @@
-import { UInt, type UInt8, type UIntCompatible, uint, uint8 } from "@/UInt";
-
-export type DataWidth = 8 | 16 | 32 | 64;
+import {
+  type DataWidth,
+  UInt,
+  type UInt8,
+  type UIntCompatible,
+  uint,
+  uint8,
+} from "@/UInt";
 
 export interface Ram {
   dump(): UInt8[];

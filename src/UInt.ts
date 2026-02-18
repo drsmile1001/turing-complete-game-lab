@@ -84,6 +84,10 @@ export class UInt<Bits extends number> {
     return this.value.toString(radix);
   }
 
+  toBinaryString() {
+    return this.value.toString(2).padStart(this.bits, "0");
+  }
+
   toNumber() {
     if (this.value > BigInt(Number.MAX_SAFE_INTEGER)) {
       throw new RangeError("Value exceeds MAX_SAFE_INTEGER");
@@ -115,4 +119,10 @@ export function uint16(value: UIntCompatible) {
 
 export function uint32(value: UIntCompatible) {
   return new UInt(32, value);
+}
+
+export const vaildDataWidth = [8, 16, 24, 32, 40, 48, 56, 64] as const;
+export type DataWidth = (typeof vaildDataWidth)[number];
+export function isDataWidth(value: number): value is DataWidth {
+  return vaildDataWidth.includes(value as DataWidth);
 }

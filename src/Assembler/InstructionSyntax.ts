@@ -5,27 +5,9 @@ import {
   ok,
 } from "@drsmile1001/utils/Result";
 
-import { StringReader } from "../StringReader";
+import { StringReader } from "@/StringReader";
 
-export type InstructionSyntaxLiteral = {
-  type: "LITERAL";
-  value: string;
-};
-export type InstructionSyntaxSpace = {
-  type: "SPACE";
-  optional: boolean;
-};
-export type InstructionSyntaxOperand = {
-  type: "OPERAND";
-  name: string;
-  signedness: "SIGNED" | "UNSIGNED";
-  size: number;
-  fields: string[];
-};
-export type InstructionSyntaxToken =
-  | InstructionSyntaxLiteral
-  | InstructionSyntaxSpace
-  | InstructionSyntaxOperand;
+import type { InstructionSyntaxToken } from "./Spec";
 
 type TokenMatcher = (
   reader: StringReader

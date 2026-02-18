@@ -1,20 +1,13 @@
 import { type Result, err, isOk, ok } from "@drsmile1001/utils/Result";
 
 import { StringReader } from "@/StringReader";
-import { type UInt, uint } from "@/UInt";
+import { uint } from "@/UInt";
 
-export type OutputBitLiteral = {
-  type: "LITERAL";
-  value: UInt<number>;
-};
-
-export type OutputBitReference = {
-  type: "REFERENCE";
-  char: string;
-  length: number;
-};
-
-export type OutputBitToken = OutputBitLiteral | OutputBitReference;
+import type {
+  OutputBitLiteral,
+  OutputBitReference,
+  OutputBitToken,
+} from "./Spec";
 
 export function parseOutputBitLine(
   line: string

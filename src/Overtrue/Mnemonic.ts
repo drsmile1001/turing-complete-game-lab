@@ -1,9 +1,9 @@
 export type RegisterIndex = 0 | 1 | 2 | 3 | 4 | 5;
 export type IMM = `imm ${number | string}`;
 export type MOV =
-  `mov ${"in" | `r${RegisterIndex}`} ${"out" | `r${RegisterIndex}`}`;
+  `mov ${"out" | `r${RegisterIndex}`}, ${"in" | `r${RegisterIndex}`}`;
 export type CALC = `nand` | `and` | `or` | `nor` | `add` | `sub`;
-export type COND = `nop` | `jmp` | `jz` | `jnz` | `js` | `jns` | `jsz` | `jnsz`;
+export type COND = `nop` | `jmp` | `jz` | `jnz` | `jl` | `jge` | `jle` | `jg`;
 export type LABEL = `${string}:`;
 
 export type OvertureMnemonic = IMM | MOV | CALC | COND | LABEL;
@@ -17,7 +17,7 @@ export class MnemonicBuilder {
   }
 
   mov(from: "in" | `r${RegisterIndex}`, to: "out" | `r${RegisterIndex}`) {
-    this.lines.push(`mov ${from} ${to}`);
+    this.lines.push(`mov ${to}, ${from}`);
     return this;
   }
 
@@ -61,23 +61,22 @@ export class MnemonicBuilder {
     this.lines.push("jnz");
     return this;
   }
-  js() {
-    this.lines.push("js");
+  jl() {
+    this.lines.push("jl");
     return this;
   }
-  jns() {
-    this.lines.push("jns");
+  jge() {
+    this.lines.push("jge");
     return this;
   }
-  jsz() {
-    this.lines.push("jsz");
+  jle() {
+    this.lines.push("jle");
     return this;
   }
-  jnsz() {
-    this.lines.push("jnsz");
+  jg() {
+    this.lines.push("jg");
     return this;
   }
-
   label(name: string) {
     this.lines.push(`${name}:` as LABEL);
     return this;

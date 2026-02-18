@@ -1,12 +1,12 @@
 import { type Result, err, isErr, ok } from "@drsmile1001/utils/Result";
 
-import {
-  type InstructionSyntaxToken,
-  parseInstructionSyntaxLine,
-} from "./InstructionSyntax";
-import { type OutputBitToken, parseOutputBitLine } from "./OutputBit";
+import { isDataWidth } from "@/UInt";
 
-export function parseSpec(spec: string) {
+import { parseInstructionSyntaxLine } from "./InstructionSyntax";
+import { parseOutputBitLine } from "./OutputBit";
+import type { Field, Instruction, Spec } from "./Spec";
+
+export function parseSpec(spec: string): Result<Spec, string> {
   spec = removeBlockComments(spec);
   spec = removeLineComments(spec);
   const sections = toSections(spec);
@@ -54,12 +54,6 @@ export function toSections(text: string): Record<string, string> {
     Object.entries(sections).map(([key, value]) => [key, value.join("\n")])
   );
 }
-
-type Field<Bits extends number> = {
-  name: string;
-  bits: Bits;
-  map: Record<string, number>;
-};
 
 export function splitTextByBlankLines(text: string): string[] {
   const sections: string[] = [];
@@ -121,11 +115,6 @@ export function parseFieldSection(sectionText: string) {
   return ok(fields);
 }
 
-type Instruction = {
-  syntax: InstructionSyntaxToken[];
-  outputBit: OutputBitToken[];
-};
-
 export function parseInstructionSection(
   sectionText: string
 ): Result<Instruction[], string> {
@@ -157,9 +146,23 @@ export function parseInstruction(text: string) {
   if (isErr(outputBitResult)) {
     return err(`解析輸出位元行失敗: ${outputBitResult.error}`);
   }
+  const dataWidth = outputBitResult.value.reduce((sum, token) => {
+    if (token.type === "LITERAL") {
+      return sum + token.value.bits;
+    } else {
+      return sum + token.length;
+    }
+  }, 0);
+  if (!isDataWidth(dataWidth)) {
+    return err(
+      `指令 "${syntaxLine}" 的輸出位元總寬度必須是 8 到 64 之間的 8 的倍數，但目前是 ${dataWidth}`
+    );
+  }
+  //TODO: 檢查output bit 的reference是否在syntax裡有定義
   const instruction: Instruction = {
     syntax: syntaxResult.value,
     outputBit: outputBitResult.value,
+    dataWidth,
   };
   return ok(instruction);
 }

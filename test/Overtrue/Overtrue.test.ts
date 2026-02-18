@@ -12,22 +12,22 @@ describe("Overtrue", () => {
   test("可以存取所有寄存器", () => {
     const lines: OvertureMnemonic[] = [
       `imm 10`,
-      `mov r0 r1`,
+      `mov r1, r0`,
       `imm 20`,
-      `mov r0 r2`,
+      `mov r2, r0`,
       `imm 30`,
-      `mov r0 r3`,
+      `mov r3, r0`,
       `imm 40`,
-      `mov r0 r4`,
+      `mov r4, r0`,
       `imm 50`,
-      `mov r0 r5`,
+      `mov r5, r0`,
       `imm 60`,
-      `mov r5 out`,
-      `mov r4 out`,
-      `mov r3 out`,
-      `mov r2 out`,
-      `mov r1 out`,
-      `mov r0 out`,
+      `mov out, r5`,
+      `mov out, r4`,
+      `mov out, r3`,
+      `mov out, r2`,
+      `mov out, r1`,
+      `mov out, r0`,
     ];
 
     const { cpu, out } = runOvertureProgram({

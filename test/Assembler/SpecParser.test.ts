@@ -225,6 +225,7 @@ test("Overtrue", () => {
         length: 3,
       },
     ],
+    dataWidth: 8,
   });
   const immInstruction = instructions[1]!;
   expect(immInstruction).toEqual({
@@ -256,6 +257,7 @@ test("Overtrue", () => {
         length: 6,
       },
     ],
+    dataWidth: 8,
   });
   const jgInstruction = instructions[15]!;
   expect(jgInstruction).toEqual({
@@ -271,5 +273,6 @@ test("Overtrue", () => {
         value: uint(8, 0b11000111),
       },
     ],
+    dataWidth: 8,
   });
 });
