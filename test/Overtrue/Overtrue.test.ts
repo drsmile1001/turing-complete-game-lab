@@ -55,18 +55,18 @@ describe("Overtrue", () => {
     }) {
       const lines: OvertureMnemonic[] = [
         `imm 10`,
-        `mov r0 r4`,
+        `mov r4, r0`,
         `imm 20`,
-        `mov r0 r5`,
+        `mov r5, r0`,
         `imm ${options.testValue}`,
-        `mov r0 r1`,
+        `mov r1, r0`,
         `imm 10`,
-        `mov r0 r2`,
+        `mov r2, r0`,
         `sub`,
         `imm 12`, // 如果跳則跳到最後
         options.condition,
-        `mov r4 out`, // 不跳則輸出10
-        `mov r5 out`, // 跳則輸出20
+        `mov out, r4`, // 不跳則輸出10
+        `mov out, r5`, // 跳則輸出20
       ];
 
       const { out } = runOvertureProgram({
@@ -156,73 +156,73 @@ describe("Overtrue", () => {
       });
     });
 
-    test("js", () => {
+    test("jl", () => {
       runConditionalJumpTest({
-        condition: "js",
+        condition: "jl",
         testValue: uint8(10), // 10 - 10 == 0
         shouldJump: false,
       });
       runConditionalJumpTest({
-        condition: "js",
+        condition: "jl",
         testValue: uint8(5), // 5 - 10 < 0
         shouldJump: true,
       });
       runConditionalJumpTest({
-        condition: "js",
+        condition: "jl",
         testValue: uint8(15), // 15 - 10 > 0
         shouldJump: false,
       });
     });
 
-    test("jns", () => {
+    test("jge", () => {
       runConditionalJumpTest({
-        condition: "jns",
+        condition: "jge",
         testValue: uint8(10), // 10 - 10 == 0
         shouldJump: true,
       });
       runConditionalJumpTest({
-        condition: "jns",
+        condition: "jge",
         testValue: uint8(5), // 5 - 10 < 0
         shouldJump: false,
       });
       runConditionalJumpTest({
-        condition: "jns",
+        condition: "jge",
         testValue: uint8(15), // 15 - 10 > 0
         shouldJump: true,
       });
     });
 
-    test("jsz", () => {
+    test("jle", () => {
       runConditionalJumpTest({
-        condition: "jsz",
+        condition: "jle",
         testValue: uint8(10), // 10 - 10 == 0
         shouldJump: true,
       });
       runConditionalJumpTest({
-        condition: "jsz",
+        condition: "jle",
         testValue: uint8(5), // 5 - 10 < 0
         shouldJump: true,
       });
       runConditionalJumpTest({
-        condition: "jsz",
+        condition: "jle",
         testValue: uint8(15), // 15 - 10 > 0
         shouldJump: false,
       });
     });
 
-    test("jnsz", () => {
+    test("jg", () => {
       runConditionalJumpTest({
-        condition: "jnsz",
+        condition: "jg",
         testValue: uint8(10), // 10 - 10 == 0
         shouldJump: false,
       });
       runConditionalJumpTest({
-        condition: "jnsz",
+        condition: "jg",
         testValue: uint8(5), // 5 - 10 < 0
         shouldJump: false,
       });
       runConditionalJumpTest({
-        condition: "jnsz",
+        condition: "jg",
         testValue: uint8(15), // 15 - 10 > 0
         shouldJump: true,
       });

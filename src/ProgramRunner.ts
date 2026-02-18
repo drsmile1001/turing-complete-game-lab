@@ -7,14 +7,18 @@ import { type InputPort } from "./Components/InputPort";
 import { type OutputPort } from "./Components/OutputPort";
 import { QueuePort } from "./Components/QueuePort";
 
-export type RunProgramOptions<Bits extends number, Mnemonic extends string> = {
+export type RunProgramOptions<
+  Bits extends number,
+  Mnemonic extends string,
+  TCPU extends CPU<Bits>,
+> = {
   bits: Bits;
-  cpu: CPU<Bits>;
+  cpu: TCPU;
   programLines: Mnemonic[];
-  assemble: (lines: Mnemonic[]) => UInt<Bits>[];
+  assemble: (lines: Mnemonic[]) => UInt8[];
   logger?: Logger;
   maxTicks?: number;
-  afterHook?: (tick: number, out: UInt<Bits>[]) => "STOP" | void;
+  afterHook?: (tick: number, out: UInt<Bits>[], cpu: TCPU) => "STOP" | void;
   input?: InputPort<Bits> | UIntCompatible[];
   output?: OutputPort<Bits>;
 };
@@ -22,17 +26,8 @@ export type RunProgramOptions<Bits extends number, Mnemonic extends string> = {
 export function runProgram<
   Bits extends number,
   Mnemonic extends string,
->(options: {
-  bits: Bits;
-  cpu: CPU<Bits>;
-  programLines: Mnemonic[];
-  assemble: (lines: Mnemonic[]) => UInt8[];
-  logger?: Logger;
-  maxTicks?: number;
-  afterHook?: (tick: number, out: UInt<Bits>[]) => "STOP" | void;
-  input?: InputPort<Bits> | UIntCompatible[];
-  output?: OutputPort<Bits>;
-}) {
+  TCPU extends CPU<Bits>,
+>(options: RunProgramOptions<Bits, Mnemonic, TCPU>) {
   const {
     logger,
     bits,
@@ -69,7 +64,7 @@ export function runProgram<
   for (let tick = 0; tick < maxTicksFinal; tick++) {
     cpu.tick();
     logger?.debug({ tick }, `Tick ${tick}`);
-    const result = afterHook?.(tick, outputQueuePort.values);
+    const result = afterHook?.(tick, outputQueuePort.values, cpu);
     if (result === "STOP") {
       break;
     }

@@ -4,7 +4,7 @@ import { Overture, type OvertureMnemonic, assembleOvertrue } from "@/Overtrue";
 import { type RunProgramOptions, runProgram } from "@/ProgramRunner";
 
 export type RunOvertureOptions = Pick<
-  RunProgramOptions<8, OvertureMnemonic>,
+  RunProgramOptions<8, OvertureMnemonic, Overture>,
   "programLines" | "maxTicks" | "afterHook" | "input" | "output" | "logger"
 >;
 

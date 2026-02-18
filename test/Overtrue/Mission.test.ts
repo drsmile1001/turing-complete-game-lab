@@ -14,10 +14,10 @@ describe("Overtrue.Mission", () => {
   test("每個輸入加5後輸出", () => {
     const lines: OvertureMnemonic[] = [
       `imm 5`,
-      `mov r0 r2`,
-      `mov in r1`,
+      `mov r2, r0`,
+      `mov r1, in`,
       `add`,
-      `mov r3 out`,
+      `mov out, r3`,
       `imm 0`,
       `jmp`,
     ];
@@ -41,15 +41,15 @@ describe("Overtrue.Mission", () => {
   test("每個輸入乘6後輸出", () => {
     const lines: OvertureMnemonic[] = [
       "start:",
-      "mov in r1", // r1 = input
-      "mov r1 r2", // r2 = input
+      "mov r1, in", // r1 = input
+      "mov r2, r1", // r2 = input
       "add", // r3 = input * 2
-      "mov r3 r1", // r1 = input * 2
-      "mov r1 r2", // r2 = input * 2
+      "mov r1, r3", // r1 = input * 2
+      "mov r2, r1", // r2 = input * 2
       "add", // r3 = input * 4
-      "mov r3 r1", // r1 = input * 4
+      "mov r1, r3", // r1 = input * 4
       "add", // r3 = input * 6
-      "mov r3 out", // output input * 6
+      "mov out, r3", // output input * 6
       "imm start",
       "jmp",
     ];
@@ -193,7 +193,13 @@ describe("Overtrue.Mission", () => {
       programLines: lines,
       input,
       maxTicks: 100,
-      afterHook: (_1, out) => {
+      afterHook: (tick, out, cpu) => {
+        const state = cpu.getState();
+        console.debug({
+          tick,
+          registers: state.registers.map((r) => r.toNumber()),
+          lastInstructionDescription: state.lastInstructionDescription,
+        });
         if (out.length >= input.length) {
           return "STOP";
         }
