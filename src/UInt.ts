@@ -100,6 +100,23 @@ export class UInt<Bits extends number> {
   valueOf() {
     return this.value;
   }
+
+  asUInt<T extends number>(width: T) {
+    return new UInt(width, this.value);
+  }
+
+  toBytes(endian: "BIG" | "LITTLE" = "BIG"): ByteArrayByBits<Bits> {
+    const bytes: UInt8[] = [];
+    const bytesCount = Math.ceil(this.bits / 8);
+    for (let byteIndex = 0; byteIndex < bytesCount; byteIndex++) {
+      const shift = byteIndex * 8;
+      const value = this.shr(shift).asUInt(8);
+      bytes.push(value);
+    }
+    return (
+      endian === "BIG" ? bytes.reverse() : bytes
+    ) as ByteArrayByBits<Bits>;
+  }
 }
 export type UInt8 = UInt<8>;
 export type UInt16 = UInt<16>;
@@ -131,3 +148,21 @@ export type DataWidth = (typeof vaildDataWidth)[number];
 export function isDataWidth(value: number): value is DataWidth {
   return vaildDataWidth.includes(value as DataWidth);
 }
+
+export type ByteArrayByBits<TotalBits extends number> = TotalBits extends 8
+  ? [UInt8]
+  : TotalBits extends 16
+    ? [UInt8, UInt8]
+    : TotalBits extends 24
+      ? [UInt8, UInt8, UInt8]
+      : TotalBits extends 32
+        ? [UInt8, UInt8, UInt8, UInt8]
+        : TotalBits extends 40
+          ? [UInt8, UInt8, UInt8, UInt8, UInt8]
+          : TotalBits extends 48
+            ? [UInt8, UInt8, UInt8, UInt8, UInt8, UInt8]
+            : TotalBits extends 56
+              ? [UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8]
+              : TotalBits extends 64
+                ? [UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8]
+                : UInt8[];

@@ -2,10 +2,12 @@ import { buildTestLogger } from "@drsmile1001/testkit";
 import { describe, expect, test } from "bun:test";
 
 import { type LevelInput, type LevelOutput } from "@/Components/LevelIO";
-import { MnemonicBuilder, type OvertureMnemonic } from "@/Overtrue";
+import {
+  MnemonicBuilder,
+  type OvertureMnemonic,
+  runOvertureProgram,
+} from "@/Overtrue";
 import { type UInt8, uint64 } from "@/UInt";
-
-import { runOvertureProgram } from "./OvertrueRunner";
 
 const logger = buildTestLogger().extend("Overtrue.Mission");
 

@@ -23,11 +23,11 @@ describe("RamDefault", () => {
     ram.write(0, uint8(123));
     expect(ram.read(0, 8).toNumber()).toBe(123);
     expect(ram.read(1, 8).toNumber()).toBe(0);
-    expect(ram.read(0, 16).toNumber()).toBe(123);
+    expect(ram.read(0, 16).toNumber()).toBe(123 << 8);
 
     ram.write(0, uint16(256));
-    expect(ram.read(0, 8).toNumber()).toBe(0);
-    expect(ram.read(1, 8).toNumber()).toBe(1);
+    expect(ram.read(0, 8).toNumber()).toBe(1);
+    expect(ram.read(1, 8).toNumber()).toBe(0);
     expect(ram.read(0, 16).toNumber()).toBe(256);
 
     //TODO: 溢位測試

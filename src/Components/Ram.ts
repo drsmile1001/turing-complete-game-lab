@@ -14,6 +14,13 @@ export interface Ram {
   write<Bits extends DataWidth>(address: number, value: UInt<Bits>): void;
 }
 
+/**
+RAM 元件
+
+預設大端序
+- 存放  1到0 -> [0x00, 0x01]: 讀取8寬0位置得到 0x00,讀取8寬1位置得到 0x01, 讀取16寬0位置得到 0x0001
+- 存放256到0 -> [0x01, 0x00]: 讀取8寬0位置得到 0x01,讀取8寬1位置得到 0x00, 讀取16寬0位置得到 0x0100
+*/
 export class RamDefault implements Ram {
   private bytes: UInt8[];
   constructor(private size: number) {
@@ -29,20 +36,27 @@ export class RamDefault implements Ram {
       this.bytes[i] = uint8(data[i]!);
     }
   }
-  //TODO: 處理溢位
-  read<Bits extends DataWidth>(address: number, bits: Bits): UInt<Bits> {
-    const bytes = bits / 8;
-    let output = uint(bits, 0);
-    for (let i = bytes - 1; i >= 0; i--) {
-      output = output.shl(8).or(this.bytes[address + i]!);
-    }
-    return output as UInt<Bits>;
-  }
   write<Bits extends DataWidth>(address: number, value: UInt<Bits>): void {
-    const bytes = value.bits / 8;
-    for (let i = 0; i < bytes; i++) {
-      this.bytes[address + i] = uint8(value);
-      value = value.shr(8);
+    const bytes = value.toBytes();
+    for (let i = 0; i < bytes.length; i++) {
+      if (address + i >= this.size) {
+        break;
+      }
+      this.bytes[address + i] = bytes[i]!;
     }
+  }
+
+  read<Bits extends DataWidth>(address: number, bits: Bits): UInt<Bits> {
+    const bytes: UInt8[] = [];
+    const bytesCount = Math.ceil(bits / 8);
+    for (let i = 0; i < bytesCount; i++) {
+      bytes.push(this.bytes[address + i] ?? uint8(0));
+    }
+    return bytes.reduce(
+      (acc, byte) => {
+        return acc.shl(8).or(byte);
+      },
+      uint(bits, 0)
+    );
   }
 }

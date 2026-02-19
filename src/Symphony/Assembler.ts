@@ -7,7 +7,7 @@ import SpecText from "./Spec.isa";
 
 const specResult = parseSpec(SpecText);
 
-export function assembleOvertrue(source: string) {
+export function assembleSymphony(source: string) {
   if (isErr(specResult)) {
     return err(specResult.error);
   }

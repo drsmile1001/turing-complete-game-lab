@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { uint8 } from "@/UInt";
+import { uint8, uint16 } from "@/UInt";
 
 describe("UInt", () => {
   test("of", () => {
@@ -34,5 +34,23 @@ describe("UInt", () => {
     const d = uint8(0b00000010);
     const e = d.sub(b);
     expect(e.value).toBe(0b00000001n);
+  });
+
+  test("shr", () => {
+    const a = uint16(0b00000001_00000000);
+    expect(a.shr(1).value).toBe(0b00000000_10000000n);
+  });
+
+  test("asUInt", () => {
+    const a = uint16(0b00000001_00000000);
+    const b = a.asUInt(8);
+    expect(b.value).toBe(0b00000000n);
+  });
+
+  test("toBytes", () => {
+    const a = uint16(256);
+    const [high, end] = a.toBytes();
+    expect(high.toNumber()).toBe(1);
+    expect(end.toNumber()).toBe(0);
   });
 });

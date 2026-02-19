@@ -1,10 +1,12 @@
 import { buildTestLogger } from "@drsmile1001/testkit";
 import { describe, expect, test } from "bun:test";
 
-import { type COND, type OvertureMnemonic } from "@/Overtrue";
+import {
+  type COND,
+  type OvertureMnemonic,
+  runOvertureProgram,
+} from "@/Overtrue";
 import { type UInt8, uint8 } from "@/UInt";
-
-import { runOvertureProgram } from "./OvertrueRunner";
 
 const logger = buildTestLogger().extend("Overtrue");
 
