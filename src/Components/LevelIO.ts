@@ -27,3 +27,15 @@ export class EmptyIO implements LevelInput, LevelOutput {
     return uint64(0);
   }
 }
+
+export class FanoutOutput implements LevelOutput {
+  outputs: LevelOutput[];
+  constructor(outputs: LevelOutput[]) {
+    this.outputs = outputs;
+  }
+  write(v: UInt<number>): void {
+    for (const output of this.outputs) {
+      output.write(v);
+    }
+  }
+}

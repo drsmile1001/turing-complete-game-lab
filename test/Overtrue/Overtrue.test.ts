@@ -1,18 +1,14 @@
 import { buildTestLogger } from "@drsmile1001/testkit";
 import { describe, expect, test } from "bun:test";
 
-import {
-  type COND,
-  type OvertureMnemonic,
-  runOvertureProgram,
-} from "@/Overtrue";
+import { type COND, OvertrueRunner, type OvertureMnemonic } from "@/Overtrue";
 import { type UInt8, uint8 } from "@/UInt";
 
 const logger = buildTestLogger().extend("Overtrue");
 
 describe("Overtrue", () => {
   test("可以存取所有寄存器", () => {
-    const lines: OvertureMnemonic[] = [
+    const program: OvertureMnemonic[] = [
       `imm 10`,
       `mov r1, r0`,
       `imm 20`,
@@ -32,16 +28,12 @@ describe("Overtrue", () => {
       `mov out, r0`,
     ];
 
-    const { cpu, out } = runOvertureProgram({
+    const runner = new OvertrueRunner({
       logger,
-      program: lines,
-      afterHook: ({ out }) => {
-        if (out.length >= 6) {
-          return "STOP";
-        }
-      },
+      program,
     });
 
+    const { cpu, out } = runner.tickWhile(({ out }) => out.length < 6);
     const { registers } = cpu.getState();
     expect(registers.map((r) => r.toNumber())).toEqual([
       60, 10, 20, 30, 40, 50,
@@ -55,7 +47,7 @@ describe("Overtrue", () => {
       testValue: UInt8;
       shouldJump: boolean;
     }) {
-      const lines: OvertureMnemonic[] = [
+      const program: OvertureMnemonic[] = [
         `imm 10`,
         `mov r4, r0`,
         `imm 20`,
@@ -71,16 +63,11 @@ describe("Overtrue", () => {
         `mov out, r5`, // 跳則輸出20
       ];
 
-      const { out } = runOvertureProgram({
+      const runner = new OvertrueRunner({
         logger,
-        program: lines,
-        afterHook: ({ out }) => {
-          if (out.length) {
-            return "STOP";
-          }
-        },
+        program,
       });
-
+      const { out } = runner.tickWhile(({ out }) => out.length < 1);
       expect(out.map((r) => r.toNumber())).toEqual([
         options.shouldJump ? 20 : 10,
       ]);

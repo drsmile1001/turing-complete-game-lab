@@ -1,9 +1,9 @@
 import { buildTestLogger } from "@drsmile1001/testkit";
-import { describe, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 import { createMnemonicBuilder } from "@/Symphony";
-import { runSymphonyProgram } from "@/Symphony/Runner";
-import type { ModeName } from "@/Symphony/Symphony";
+import { SymphonyRunner } from "@/Symphony/Runner";
+import type { Mode } from "@/Symphony/Symphony";
 
 const logger = buildTestLogger().extend("Symphony");
 
@@ -16,22 +16,18 @@ describe("Symphony", () => {
       .store(16, 0, "zr")
       .build();
 
-    const tickModes: ModeName[] = ["IO", "ALU", "JUMP", "RAM"];
+    const tickModes: Mode[] = ["IO", "ALU", "JUMP", "RAM"];
 
-    runSymphonyProgram({
+    const runner = new SymphonyRunner({
       logger,
       program,
-      afterHook: ({ tick, cpu }) => {
-        const { mode } = cpu.getDebugInfo();
-        if (mode !== tickModes[tick]) {
-          throw new Error(
-            `Tick ${tick}: Expected mode ${tickModes[tick]}, but got ${mode}`
-          );
-        }
-        if (tick >= 3) {
-          return "STOP";
-        }
-      },
+    });
+
+    runner.tickWhile(({ state }) => {
+      const expectedMode = tickModes.shift()!;
+      const actualMode = state.mode;
+      expect(actualMode).toBe(expectedMode);
+      return tickModes.length > 0;
     });
   });
 });

@@ -4,8 +4,8 @@ import { describe, expect, test } from "bun:test";
 import { type LevelInput, type LevelOutput } from "@/Components/LevelIO";
 import {
   MnemonicBuilder,
+  OvertrueRunner,
   type OvertureMnemonic,
-  runOvertureProgram,
 } from "@/Overtrue";
 import { type UInt8, uint64 } from "@/UInt";
 
@@ -13,7 +13,7 @@ const logger = buildTestLogger().extend("Overtrue.Mission");
 
 describe("Overtrue.Mission", () => {
   test("每個輸入加5後輸出", () => {
-    const lines: OvertureMnemonic[] = [
+    const program: OvertureMnemonic[] = [
       `imm 5`,
       `mov r2, r0`,
       `mov r1, in`,
@@ -25,22 +25,17 @@ describe("Overtrue.Mission", () => {
 
     const input = [1, 10, 5, 20, 125];
 
-    const { out } = runOvertureProgram({
+    const runner = new OvertrueRunner({
       logger,
-      program: lines,
+      program,
       input,
-      afterHook: ({ out }) => {
-        if (out.length >= input.length) {
-          return "STOP";
-        }
-      },
     });
-
+    const { out } = runner.tickWhile(({ out }) => out.length < input.length);
     expect(out.map((v) => v.toNumber())).toEqual(input.map((v) => v + 5));
   });
 
   test("每個輸入乘6後輸出", () => {
-    const lines: OvertureMnemonic[] = [
+    const program: OvertureMnemonic[] = [
       "start:",
       "mov r1, in", // r1 = input
       "mov r2, r1", // r2 = input
@@ -54,28 +49,20 @@ describe("Overtrue.Mission", () => {
       "imm start",
       "jmp",
     ];
-
     const input = [1, 10, 5, 20, 40];
-
-    const { out } = runOvertureProgram({
+    const runner = new OvertrueRunner({
       logger,
-      program: lines,
-      input: input,
-      maxTicks: 100,
-      afterHook: ({ out }) => {
-        if (out.length >= input.length) {
-          return "STOP";
-        }
-      },
+      program,
+      input,
     });
-
+    const { out } = runner.tickWhile(({ out }) => out.length < input.length);
     expect(out.map((v) => v.toNumber())).toEqual(
       input.map((v) => (v * 6) & 0xff)
     );
   });
 
   test("持續取用輸入，取到37時輸出讀取次數", () => {
-    const lines = new MnemonicBuilder()
+    const program = new MnemonicBuilder()
       .label("next_value")
       .imm(1)
       .mov("r0", "r2") // r2 = 1
@@ -109,21 +96,19 @@ describe("Overtrue.Mission", () => {
       })
       .flat();
 
-    const { out } = runOvertureProgram({
+    const runner = new OvertrueRunner({
       logger,
-      program: lines,
+      program,
       input,
-      afterHook: ({ out }) => {
-        if (out.length >= input.length) {
-          return "STOP";
-        }
-      },
     });
+    const { out } = runner.tickWhile(
+      ({ out, tick }) => out.length < 4 && tick < 1000
+    );
     expect(out.map((v) => v.toNumber())).toEqual(gaps.map((v) => v + 1));
   });
 
   test("猜數字", () => {
-    const lines = new MnemonicBuilder()
+    const program = new MnemonicBuilder()
       .label("start")
       .imm(1)
       .mov("r0", "r1") // r1 = 1
@@ -154,29 +139,22 @@ describe("Overtrue.Mission", () => {
       }
     }
     const doorPort = new LevelDoor();
-
     const testNumbers = [0, 1, 10, 50, 100, 200, 250, 255];
     for (const n of testNumbers) {
       doorPort.setNumber(n);
-      runOvertureProgram({
+      const runner = new OvertrueRunner({
         logger,
-        program: lines,
+        program,
         input: doorPort,
         output: doorPort,
-        maxTicks: 2000,
-        afterHook: ({ tick }) => {
-          if (doorPort.match) {
-            logger.debug(`Guessed number ${n} in ${tick} ticks`);
-            return "STOP";
-          }
-        },
       });
+      runner.tickWhile(({ tick }) => !doorPort.match && tick < 2000);
       expect(doorPort.match).toBe(true);
     }
   });
 
   test("取 mod 4", () => {
-    const lines = new MnemonicBuilder()
+    const program = new MnemonicBuilder()
       .imm(3)
       .mov("r0", "r2") // r2 = 3
       .imm("start")
@@ -188,18 +166,14 @@ describe("Overtrue.Mission", () => {
       .toLines();
 
     const input = [1, 10, 5, 20, 40];
-
-    const { out } = runOvertureProgram({
+    const runner = new OvertrueRunner({
       logger,
-      program: lines,
+      program,
       input,
-      maxTicks: 100,
-      afterHook: ({ out }) => {
-        if (out.length >= input.length) {
-          return "STOP";
-        }
-      },
     });
+    const { out } = runner.tickWhile(
+      ({ out, tick }) => out.length < input.length && tick < 100
+    );
 
     expect(out.map((v) => v.toNumber())).toEqual(
       input.map((v) => (v % 4) & 0xff)
@@ -236,7 +210,7 @@ describe("Overtrue.Mission", () => {
     // d = nand(a, c)
     // e = nand(b, c)
     // f = nand(d, e) = a ^ b
-    const lines = new MnemonicBuilder()
+    const program = new MnemonicBuilder()
       .label("start")
       .mov("in", "r1") // r1 = input A
       .mov("in", "r2") // r2 = input B
@@ -266,19 +240,14 @@ describe("Overtrue.Mission", () => {
       [0b11001100, 0b10101010], // 204 ^ 170 = 102,
     ];
     const input = inputPairs.flat();
-
-    const { out } = runOvertureProgram({
+    const runner = new OvertrueRunner({
       logger,
-      program: lines,
+      program,
       input,
-      maxTicks: 1000,
-      afterHook: ({ out }) => {
-        if (out.length >= inputPairs.length) {
-          return "STOP";
-        }
-      },
     });
-
+    const { out } = runner.tickWhile(
+      ({ out, tick }) => out.length < inputPairs.length && tick < 1000
+    );
     expect(out.map((v) => v.toNumber())).toEqual(
       inputPairs.map(([a, b]) => (a! ^ b!) & 0xff)
     );

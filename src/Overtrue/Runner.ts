@@ -1,32 +1,60 @@
-import { isErr } from "@drsmile1001/utils/Result";
+import type { Logger } from "@drsmile1001/logger";
+import { unwrap } from "@drsmile1001/utils/Result";
 
+import { LevelRunner, type LevelRunnerOptions } from "@/LevelRunner";
 import { Overture, type OvertureMnemonic, assembleOvertrue } from "@/Overtrue";
-import { type RunProgramOptions, runProgram } from "@/ProgramRunner";
+import type { UInt8 } from "@/UInt";
 
-export type RunOvertureOptions = Pick<
-  RunProgramOptions<Overture>,
-  "maxTicks" | "afterHook" | "input" | "output" | "logger"
+export type OvertrueRunnerOptions = Omit<
+  LevelRunnerOptions<Overture>,
+  "cpu" | "binary"
 > & {
-  program: OvertureMnemonic[] | string;
+  program: OvertureMnemonic[] | string | UInt8[];
+  logger?: Logger;
 };
 
-export function runOvertureProgram(options: RunOvertureOptions) {
-  const cpu = new Overture();
-  const { program, ...rest } = options;
+export type OvertrueProgram = string | OvertureMnemonic[] | UInt8[];
 
-  const binaryResult =
-    typeof program === "string"
-      ? assembleOvertrue(program)
-      : assembleOvertrue(program.join("\n"));
-
-  if (isErr(binaryResult)) {
-    throw new Error(binaryResult.error);
+export function programToBinary(program: OvertrueProgram): UInt8[] {
+  if (typeof program === "string") {
+    return unwrap(assembleOvertrue(program));
   }
-  const binary = binaryResult.value;
-  const { out } = runProgram({
-    ...rest,
-    cpu,
-    binary,
-  });
-  return { cpu, out };
+  if (typeof program[0] === "string") {
+    return unwrap(assembleOvertrue(program.join("\n")));
+  }
+  return program as UInt8[];
+}
+
+export class OvertrueRunner extends LevelRunner<Overture> {
+  logger?: Logger;
+  constructor(options: OvertrueRunnerOptions) {
+    const { program, logger, ...rest } = options;
+    const binary = programToBinary(program);
+    super({
+      ...rest,
+      binary,
+      cpu: new Overture(),
+    });
+    this.logger = logger;
+  }
+
+  override tick() {
+    const ctx = super.tick();
+    if (this.logger) {
+      this.logger.debug(
+        {
+          event: "tick",
+          emoji: "⏱️ ",
+          tick: ctx.tick,
+          pc: ctx.state.programCounter.toNumber(),
+          instruction: ctx.state.instruction.toBinaryString(),
+          summary: ctx.state.instructionSummary,
+          registers: ctx.state.registers.map((r) => r.toNumber()),
+          out: ctx.out.map((r) => r.toNumber()),
+        },
+        `Tick ${ctx.tick}`
+      );
+    }
+    return ctx;
+  }
 }
