@@ -6,7 +6,7 @@ import { LevelRunner, type LevelRunnerOptions } from "@/LevelRunner";
 import type { UInt8 } from "@/UInt";
 
 import { assembleSymphony } from "./Assembler";
-import { Symphony } from "./Symphony";
+import { Symphony, registerName } from "./Symphony";
 
 export type SymphonyProgram = MaybeArray<string> | UInt8[];
 
@@ -44,8 +44,22 @@ export class SymphonyRunner extends LevelRunner<Symphony> {
   override tick() {
     const ctx = super.tick();
     if (this.logger) {
-      const { programCounter, registers, ram, ssd, instruction, ...rest } =
-        ctx.state;
+      const {
+        programCounter,
+        instruction,
+        mode,
+        opcode,
+        destination,
+        argA,
+        argB,
+        isImmediate,
+        immediateValue,
+      } = ctx.state;
+      const registerValues: Record<string, number> = {};
+      for (let i = 0; i < 16; i++) {
+        const name = registerName(i)!;
+        registerValues[name] = ctx.cpu.readRegister(i).toNumber();
+      }
       this.logger.debug(
         {
           event: "tick",
@@ -56,7 +70,13 @@ export class SymphonyRunner extends LevelRunner<Symphony> {
             .toBytes()
             .map((b) => b.toBinaryString())
             .join("_"),
-          ...rest,
+          mode,
+          opcode,
+          dist: destination.toNumber(),
+          argA: argA.toNumber(),
+          argB: isImmediate ? undefined : argB.toNumber(),
+          imm: isImmediate ? immediateValue.toNumber() : undefined,
+          registers: registerValues,
           out: ctx.out.map((r) => r.toNumber()),
         },
         `Tick ${ctx.tick}`

@@ -5,7 +5,7 @@ export interface LevelInput {
 }
 
 export interface LevelOutput {
-  write(v: UInt<number>): void;
+  write(v: UIntCompatible): void;
 }
 
 export class QueueIO implements LevelInput, LevelOutput {
@@ -13,7 +13,7 @@ export class QueueIO implements LevelInput, LevelOutput {
   constructor(i: UIntCompatible[] = []) {
     this.values.push(...i.map((v) => uint64(v)));
   }
-  write(v: UInt<number>): void {
+  write(v: UIntCompatible): void {
     this.values.push(uint64(v));
   }
   read() {

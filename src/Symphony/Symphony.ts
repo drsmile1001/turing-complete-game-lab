@@ -5,7 +5,13 @@ import {
   type LevelOutput,
 } from "@/Components/LevelIO";
 import { RamDefault } from "@/Components/Ram";
-import { type UInt8, type UInt32, uint16, uint32 } from "@/UInt";
+import {
+  type UInt8,
+  type UInt32,
+  type UIntCompatible,
+  uint16,
+  uint32,
+} from "@/UInt";
 
 const modes = ["IO", "ALU", "JUMP", "RAM"] as const;
 
@@ -71,14 +77,22 @@ export const ramOpcodes = {
 
 export type RamOpcode = (typeof ramOpcodes)[keyof typeof ramOpcodes];
 
+export function registerName(index: number) {
+  if (index === 0) return "zr";
+  if (index === 14) return "sp";
+  if (index === 15) return "flags";
+  if (index >= 1 && index <= 13) return `r${index}`;
+  return undefined;
+}
+
 export function decodeInstruction(instruction: UInt32) {
   const modeCode = instruction.shr(29).asUInt(2).toNumber();
   const opcode = instruction.shr(24).asUInt(4).toNumber();
-  const destination = instruction.shr(20).asUInt(4).toNumber();
-  const argA = instruction.shr(16).asUInt(4).toNumber();
-  const argB = instruction.shr(8).asUInt(4).toNumber();
+  const destination = instruction.shr(20).asUInt(4);
+  const argA = instruction.shr(16).asUInt(4);
+  const argB = instruction.shr(8).asUInt(4);
   const isImmediate = instruction.shr(28).asUInt(1).toNumber() === 1;
-  const immediateValue = instruction.asUInt(16).toNumber();
+  const immediateValue = instruction.asUInt(16);
   const mode = modes[modeCode];
   const base = {
     destination,
@@ -147,5 +161,49 @@ export class Symphony implements CPU {
     this.instruction = this.ram.read(this.programCounter.toNumber(), 32);
     this.programCounter = this.programCounter.add(4);
     this.decodedInstruction = decodeInstruction(this.instruction);
+    switch (this.decodedInstruction.mode) {
+      case "IO":
+        this.executeIOInstruction();
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  writeRegister(index: number, value: UIntCompatible) {
+    this.registers.write(index << 1, uint16(value));
+  }
+  readRegister(index: number) {
+    return this.registers.read(index << 1, 16);
+  }
+
+  writeDestinationRegister(value: UIntCompatible) {
+    const { destination } = this.decodedInstruction;
+    this.writeRegister(destination.toNumber(), value);
+  }
+  getValueB() {
+    const { argB, isImmediate, immediateValue } = this.decodedInstruction;
+    return isImmediate ? immediateValue : this.readRegister(argB.toNumber());
+  }
+
+  executeIOInstruction() {
+    if (this.decodedInstruction.mode !== "IO") {
+      throw new Error("Not an IO instruction");
+    }
+    const { opcode } = this.decodedInstruction;
+    switch (opcode) {
+      case "NOP":
+        break;
+      case "IN":
+        const inputValue = this.input.read();
+        this.writeDestinationRegister(inputValue);
+        break;
+      case "OUT":
+        this.output.write(this.getValueB());
+        break;
+      default:
+        break;
+    }
   }
 }
