@@ -16,6 +16,7 @@ export type RegisterIndex =
 export type RegisterField = "zr" | `r${RegisterIndex}` | "sp" | "flags";
 
 const instructions = {
+  label: (name: string) => `${name}:`,
   nop: () => "nop",
   in: (reg: RegisterField) => `in ${reg}`,
   out: (arg: RegisterField | number) => `out ${arg}`,

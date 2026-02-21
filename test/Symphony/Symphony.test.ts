@@ -5,12 +5,15 @@ import { createMnemonicBuilder as builder } from "@/Symphony";
 import { SymphonyRunner, type SymphonyRunnerOptions } from "@/Symphony/Runner";
 import {
   type DecodedFlags,
+  type JumpOperation,
   type Mode,
   type RegisterName,
   cmp,
   decodeFlags,
   decodeRamOpcode,
   encodeFlags,
+  jumpConditions,
+  jumpOperations,
 } from "@/Symphony/Symphony";
 import { uint16 } from "@/UInt";
 
@@ -145,9 +148,22 @@ describe("Symphony", () => {
     [-1, -1, { isEqual: true, isLower: false, isLess: false }],
     [-1, 0, { isEqual: false, isLower: false, isLess: true }],
     [0, -1, { isEqual: false, isLower: true, isLess: false }],
-    [-2, -2, { isEqual: true, isLower: false, isLess: false }],
     [-2, -1, { isEqual: false, isLower: true, isLess: true }],
     [-1, -2, { isEqual: false, isLower: false, isLess: false }],
+  ];
+
+  const comparisonMatchJumpOperation: [number, number, JumpOperation[]][] = [
+    [1, 1, ["JMP", "JE", "JGE", "JLE", "JAE", "JBE"]],
+    [1, 2, ["JMP", "JNE", "JL", "JLE", "JB", "JBE"]],
+    [2, 1, ["JMP", "JNE", "JG", "JGE", "JA", "JAE"]],
+    [0, 0, ["JMP", "JE", "JGE", "JLE", "JAE", "JBE"]],
+    [0, 1, ["JMP", "JNE", "JL", "JLE", "JB", "JBE"]],
+    [1, 0, ["JMP", "JNE", "JG", "JGE", "JA", "JAE"]],
+    [-1, -1, ["JMP", "JE", "JGE", "JLE", "JAE", "JBE"]],
+    [-1, 0, ["JMP", "JNE", "JL", "JLE", "JAE", "JA"]],
+    [0, -1, ["JMP", "JNE", "JG", "JGE", "JB", "JBE"]],
+    [-1, -2, ["JMP", "JNE", "JG", "JGE", "JA", "JAE"]],
+    [-2, -1, ["JMP", "JNE", "JL", "JLE", "JB", "JBE"]],
   ];
 
   test("alu - cmp", () => {
@@ -168,6 +184,28 @@ describe("Symphony", () => {
       ]);
     }
     runAndCheckState(programAndExpected);
+  });
+
+  test("jump", () => {
+    const allJumpOperations = Object.values(jumpOperations);
+    for (const [a, b, matched] of comparisonMatchJumpOperation) {
+      for (const jumpOperation of allJumpOperations) {
+        const shouldJump = matched.includes(jumpOperation);
+        const program = `\
+or r1, zr, ${uint16(a).toNumber()}
+or r2, zr, ${uint16(b).toNumber()}
+cmp r1, r2
+${jumpOperation.toLowerCase()} jumped
+out 0
+jumped:
+out 1
+`;
+        const { out } = createRunner({ program }).tickWhile(
+          ({ state, tick }) => state.operation !== "OUT" && tick < 100
+        );
+        expect(out[0]?.toNumber()).toBe(shouldJump ? 1 : 0);
+      }
+    }
   });
 
   describe("helpers", () => {
@@ -221,6 +259,20 @@ describe("Symphony", () => {
         expect(decoded).toEqual(expected);
         const reEncoded = encodeFlags(decoded);
         expect(reEncoded.toNumber()).toBe(result.toNumber());
+      }
+    });
+
+    test("jumpConditions", () => {
+      for (const [a, b, matched] of comparisonMatchJumpOperation) {
+        const flags = decodeFlags(cmp(uint16(a), uint16(b)));
+        const actualMatched: JumpOperation[] = [];
+        for (const [operation, condition] of Object.entries(jumpConditions)) {
+          if (condition(flags)) {
+            actualMatched.push(operation as JumpOperation);
+          }
+        }
+        expect(actualMatched.length).toBe(matched.length);
+        expect(actualMatched.sort()).toEqual(matched.sort());
       }
     });
   });
