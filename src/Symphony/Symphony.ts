@@ -300,11 +300,10 @@ export class Symphony implements CPU {
         );
         const targetRam = target === "RAM" ? this.ram : this.ssd;
         if (direction === "LOAD")
-          targetRam.write(valueB.toNumber(), uint(width, valueA));
-        else
           this.writeDestinationRegister(
             targetRam.read(valueB.toNumber(), width)
           );
+        else targetRam.write(valueB.toNumber(), uint(width, valueA));
         break;
       default:
         break;

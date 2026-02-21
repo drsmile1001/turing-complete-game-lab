@@ -23,6 +23,8 @@ type InstructionAndExpectation = [
   string,
   {
     registers?: Partial<Record<RegisterName, number>>;
+    ram?: Record<number, number>;
+    ssd?: Record<number, number>;
   },
 ];
 
@@ -40,13 +42,25 @@ describe("Symphony", () => {
     const program = programExpectations.map(([p]) => p);
     const runner = createRunner({ program, input: [] });
     for (const [_, expected] of programExpectations) {
-      const { cpu } = runner.tick();
+      const { cpu, state } = runner.tick();
       if (expected.registers) {
         for (const [register, value] of Object.entries(expected.registers)) {
           const actualValue = cpu
             .readRegister(register as RegisterName)
             .toNumber();
           expect(actualValue).toBe(value);
+        }
+      }
+      if (expected.ram) {
+        for (const [address, value] of Object.entries(expected.ram)) {
+          const actualValue = state.ram.read(Number(address), 8);
+          expect(actualValue.toNumber()).toBe(value);
+        }
+      }
+      if (expected.ssd) {
+        for (const [address, value] of Object.entries(expected.ssd)) {
+          const actualValue = state.ssd.read(Number(address), 8);
+          expect(actualValue.toNumber()).toBe(value);
         }
       }
     }
@@ -205,6 +219,68 @@ out 1
         );
         expect(out[0]?.toNumber()).toBe(shouldJump ? 1 : 0);
       }
+    }
+  });
+
+  test("ram", () => {
+    const high = 0b01010101;
+    const low = 0b10101010;
+    const value = (high << 8) | low;
+    const address = 1000;
+    const nextAddress = 1001;
+
+    const round = [
+      ["IMM", "RAM"],
+      ["IMM", "SSD"],
+      ["REG", "RAM"],
+      ["REG", "SSD"],
+    ] as const;
+
+    for (const [addressType, target] of round) {
+      const programAndExpected: InstructionAndExpectation[] = [
+        [`or r1, zr, ${value}`, { registers: { r1: value } }],
+        [`or r8, zr, ${address}`, { registers: { r8: address } }],
+        [`or r9, zr, ${nextAddress}`, { registers: { r9: nextAddress } }],
+        [
+          `STORE_8 [__ADDRESS__], r1`,
+          { ram: { [address]: low, [nextAddress]: 0 } },
+        ],
+        [`LOAD_16 r2, [__ADDRESS__]`, { registers: { r2: low << 8 } }],
+        [`LOAD_8 r3, [__ADDRESS__]`, { registers: { r3: low } }],
+        [`LOAD_8 r4, [__NEXT_ADDRESS__]`, { registers: { r4: 0 } }],
+        [
+          `STORE_16 [__ADDRESS__], r1`,
+          { ram: { [address]: high, [nextAddress]: low } },
+        ],
+        [`LOAD_16 r2, [__ADDRESS__]`, { registers: { r2: value } }],
+        [`LOAD_8 r3, [__ADDRESS__]`, { registers: { r3: high } }],
+        [`LOAD_8 r4, [__NEXT_ADDRESS__]`, { registers: { r4: low } }],
+      ];
+
+      for (let index = 0; index < programAndExpected.length; index++) {
+        let [instruction] = programAndExpected[index]!;
+        instruction = instruction
+          .replace(
+            "__ADDRESS__",
+            addressType === "IMM" ? address.toString() : "r8"
+          )
+          .replace(
+            "__NEXT_ADDRESS__",
+            addressType === "IMM" ? nextAddress.toString() : "r9"
+          )
+          .replace("STORE", target === "RAM" ? "store" : "pstore")
+          .replace("LOAD", target === "RAM" ? "load" : "pload");
+
+        const expected = programAndExpected[index]![1];
+        if (target === "SSD") {
+          if (expected.ram) {
+            expected.ssd = expected.ram;
+            delete expected.ram;
+          }
+        }
+        programAndExpected[index] = [instruction, expected];
+      }
+      runAndCheckState(programAndExpected);
     }
   });
 
