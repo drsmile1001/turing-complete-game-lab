@@ -80,6 +80,25 @@ export class UInt<Bits extends number> {
     return this.value === other.value;
   }
 
+  isLowerThan(other: UIntCompatible) {
+    other = this.normalize(other);
+    return this.value < other.value;
+  }
+
+  isLessThan(other: UIntCompatible) {
+    other = this.normalize(other);
+    if (this.isNegative() && !other.isNegative()) {
+      return true;
+    } else if (!this.isNegative() && other.isNegative()) {
+      return false;
+    }
+    return this.value < other.value;
+  }
+
+  isNegative() {
+    return this.value > 1n << BigInt(this.bits - 1);
+  }
+
   toString(radix?: number) {
     return this.value.toString(radix);
   }

@@ -53,4 +53,20 @@ describe("UInt", () => {
     expect(high.toNumber()).toBe(1);
     expect(end.toNumber()).toBe(0);
   });
+
+  test("isLowerThan", () => {
+    expect(uint8(0).isLowerThan(uint8(1))).toBe(true);
+    expect(uint8(1).isLowerThan(uint8(0))).toBe(false);
+    expect(uint8(-1).isLowerThan(uint8(0))).toBe(false); // 0b11111111 > 0b00000000
+    expect(uint8(-1).isLowerThan(uint8(1))).toBe(false); // 0b11111111 > 0b00000001
+    expect(uint8(-1).isLowerThan(uint8(-2))).toBe(false); // 0b11111111 > 0b11111110
+  });
+
+  test("isLessThan", () => {
+    expect(uint8(0).isLessThan(uint8(1))).toBe(true);
+    expect(uint8(1).isLessThan(uint8(0))).toBe(false);
+    expect(uint8(-1).isLessThan(uint8(0))).toBe(true);
+    expect(uint8(-1).isLessThan(uint8(1))).toBe(true);
+    expect(uint8(-1).isLessThan(uint8(-2))).toBe(false);
+  });
 });

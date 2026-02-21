@@ -3,9 +3,25 @@ import { describe, expect, test } from "bun:test";
 
 import { createMnemonicBuilder as builder } from "@/Symphony";
 import { SymphonyRunner, type SymphonyRunnerOptions } from "@/Symphony/Runner";
-import type { Mode } from "@/Symphony/Symphony";
+import {
+  type DecodedFlags,
+  type Mode,
+  type RegisterName,
+  cmp,
+  decodeFlags,
+  decodeRamOpcode,
+  encodeFlags,
+} from "@/Symphony/Symphony";
+import { uint16 } from "@/UInt";
 
 const logger = buildTestLogger().extend("Symphony");
+
+type InstructionAndExpectation = [
+  string,
+  {
+    registers?: Partial<Record<RegisterName, number>>;
+  },
+];
 
 describe("Symphony", () => {
   function createRunner(
@@ -17,11 +33,27 @@ describe("Symphony", () => {
     });
   }
 
+  function runAndCheckState(programExpectations: InstructionAndExpectation[]) {
+    const program = programExpectations.map(([p]) => p);
+    const runner = createRunner({ program, input: [] });
+    for (const [_, expected] of programExpectations) {
+      const { cpu } = runner.tick();
+      if (expected.registers) {
+        for (const [register, value] of Object.entries(expected.registers)) {
+          const actualValue = cpu
+            .readRegister(register as RegisterName)
+            .toNumber();
+          expect(actualValue).toBe(value);
+        }
+      }
+    }
+  }
+
   test("解碼指令", () => {
     const program = builder()
       .in("r1")
       .nand("r2", "r3", "r4")
-      .jne(0)
+      .je(0)
       .store(16, 0, "zr")
       .build();
     const tickModes: Mode[] = ["IO", "ALU", "JUMP", "RAM"];
@@ -36,7 +68,7 @@ describe("Symphony", () => {
   test("NOP", () => {
     const { state } = createRunner({ program: "nop" }).tick();
     expect(state.mode).toBe("IO");
-    expect(state.opcode).toBe("NOP");
+    expect(state.operation).toBe("NOP");
   });
 
   test("input and output - register", () => {
@@ -63,5 +95,133 @@ describe("Symphony", () => {
     const runner = createRunner({ program });
     const { out } = runner.tick();
     expect(out.map((v) => v.toNumber())).toEqual([12345]);
+  });
+
+  test("alu", () => {
+    const programAndExpected: InstructionAndExpectation[] = [
+      [`or r1, zr, ${0b0110}`, { registers: { r1: 0b0110 } }],
+      [`or r2, zr, ${0b0011}`, { registers: { r2: 0b0011 } }],
+      [`or r3, r1, r2`, { registers: { r3: 0b0111 } }],
+      [`and r4, r1, r2`, { registers: { r4: 0b0010 } }],
+      [
+        `nor r5, r1, r2`,
+        { registers: { r5: uint16(0b0111).not().toNumber() } },
+      ],
+      [
+        `add r6, r1, r2`,
+        { registers: { r6: uint16(0b0110).add(uint16(0b0011)).toNumber() } },
+      ],
+      [
+        `sub r7, r1, r2`,
+        { registers: { r7: uint16(0b0110).sub(uint16(0b0011)).toNumber() } },
+      ],
+      [
+        `xor r8, r1, r2`,
+        { registers: { r8: uint16(0b0110).xor(uint16(0b0011)).toNumber() } },
+      ],
+      [
+        `lsl r9, r1, 2`,
+        { registers: { r9: uint16(0b0110).shl(2).toNumber() } },
+      ],
+      [
+        `lsr r10, r1, 2`,
+        { registers: { r10: uint16(0b0110).shr(2).toNumber() } },
+      ],
+      [
+        `mul r11, r1, r2`,
+        { registers: { r11: uint16(0b0110).mul(uint16(0b0011)).toNumber() } },
+      ],
+    ];
+    runAndCheckState(programAndExpected);
+  });
+
+  const comparisonTestCases: [number, number, DecodedFlags][] = [
+    [1, 1, { isEqual: true, isLower: false, isLess: false }],
+    [1, 2, { isEqual: false, isLower: true, isLess: true }],
+    [2, 1, { isEqual: false, isLower: false, isLess: false }],
+    [0, 0, { isEqual: true, isLower: false, isLess: false }],
+    [0, 1, { isEqual: false, isLower: true, isLess: true }],
+    [1, 0, { isEqual: false, isLower: false, isLess: false }],
+    [-1, -1, { isEqual: true, isLower: false, isLess: false }],
+    [-1, 0, { isEqual: false, isLower: false, isLess: true }],
+    [0, -1, { isEqual: false, isLower: true, isLess: false }],
+    [-2, -2, { isEqual: true, isLower: false, isLess: false }],
+    [-2, -1, { isEqual: false, isLower: true, isLess: true }],
+    [-1, -2, { isEqual: false, isLower: false, isLess: false }],
+  ];
+
+  test("alu - cmp", () => {
+    const programAndExpected: InstructionAndExpectation[] = [];
+
+    for (const [a, b, expected] of comparisonTestCases) {
+      programAndExpected.push([
+        `or r1, zr, ${uint16(a).toNumber()}`,
+        { registers: { r1: uint16(a).toNumber() } },
+      ]);
+      programAndExpected.push([
+        `or r2, zr, ${uint16(b).toNumber()}`,
+        { registers: { r2: uint16(b).toNumber() } },
+      ]);
+      programAndExpected.push([
+        `cmp r1, r2`,
+        { registers: { flags: encodeFlags(expected).toNumber() } },
+      ]);
+    }
+    runAndCheckState(programAndExpected);
+  });
+
+  describe("helpers", () => {
+    test("decodeRamOpcode", () => {
+      expect(decodeRamOpcode(0b0000)).toEqual({
+        direction: "LOAD",
+        width: 8,
+        target: "RAM",
+      });
+      expect(decodeRamOpcode(0b0001)).toEqual({
+        direction: "STORE",
+        width: 8,
+        target: "RAM",
+      });
+      expect(decodeRamOpcode(0b0010)).toEqual({
+        direction: "LOAD",
+        width: 16,
+        target: "RAM",
+      });
+      expect(decodeRamOpcode(0b0011)).toEqual({
+        direction: "STORE",
+        width: 16,
+        target: "RAM",
+      });
+      expect(decodeRamOpcode(0b0100)).toEqual({
+        direction: "LOAD",
+        width: 8,
+        target: "SSD",
+      });
+      expect(decodeRamOpcode(0b0101)).toEqual({
+        direction: "STORE",
+        width: 8,
+        target: "SSD",
+      });
+      expect(decodeRamOpcode(0b0110)).toEqual({
+        direction: "LOAD",
+        width: 16,
+        target: "SSD",
+      });
+      expect(decodeRamOpcode(0b0111)).toEqual({
+        direction: "STORE",
+        width: 16,
+        target: "SSD",
+      });
+    });
+
+    test("cmp", () => {
+      for (const [a, b, expected] of comparisonTestCases) {
+        const result = cmp(uint16(a), uint16(b));
+        const decoded = decodeFlags(result);
+        expect(decoded).toEqual(expected);
+        const reEncoded = encodeFlags(decoded);
+        expect(reEncoded.toNumber()).toBe(result.toNumber());
+      }
+    });
   });
 });

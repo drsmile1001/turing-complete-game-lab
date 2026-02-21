@@ -7,17 +7,18 @@ import {
 import { RamDefault } from "@/Components/Ram";
 import {
   type UInt8,
+  type UInt16,
   type UInt32,
   type UIntCompatible,
+  uint,
   uint16,
   uint32,
 } from "@/UInt";
 
-const modes = ["IO", "ALU", "JUMP", "RAM"] as const;
-
+export const modes = ["IO", "ALU", "JUMP", "RAM"] as const;
 export type Mode = (typeof modes)[number];
 
-export const ioOpcodes = {
+export const ioOperations = {
   0b0000: "NOP",
   0b0001: "IN",
   0b0010: "OUT",
@@ -29,10 +30,9 @@ export const ioOpcodes = {
   0b1000: "COUNTER",
   0b1001: "KEYBOARD",
 } as const;
+export type IoOperation = (typeof ioOperations)[keyof typeof ioOperations];
 
-export type IoOpcode = (typeof ioOpcodes)[keyof typeof ioOpcodes];
-
-export const aluOpcodes = {
+export const aluOperations = {
   0b0000: "NAND",
   0b0001: "OR",
   0b0010: "AND",
@@ -45,10 +45,53 @@ export const aluOpcodes = {
   0b1001: "CMP",
   0b1010: "MUL",
 } as const;
+export type AluOperation = (typeof aluOperations)[keyof typeof aluOperations];
+export const aluFunctions: Record<
+  AluOperation,
+  (a: UInt16, b: UInt16) => UInt16
+> = {
+  NAND: (a, b) => a.and(b).not(),
+  OR: (a, b) => a.or(b),
+  AND: (a, b) => a.and(b),
+  NOR: (a, b) => a.or(b).not(),
+  ADD: (a, b) => a.add(b),
+  SUB: (a, b) => a.sub(b),
+  XOR: (a, b) => a.xor(b),
+  LSL: (a, b) => a.shl(b.toNumber()),
+  LSR: (a, b) => a.shr(b.toNumber()),
+  CMP: (a, b) => cmp(a, b),
+  MUL: (a, b) => a.mul(b),
+};
 
-export type AluOpcode = (typeof aluOpcodes)[keyof typeof aluOpcodes];
+export function cmp(a: UInt16, b: UInt16) {
+  const isEqual = a.equals(b);
+  const isLower = a.isLowerThan(b);
+  const isLess = a.isLessThan(b);
+  return encodeFlags({ isEqual, isLower, isLess });
+}
 
-export const jumpOpcodes = {
+export function encodeFlags(flags: {
+  isEqual: boolean;
+  isLower: boolean;
+  isLess: boolean;
+}) {
+  let value = 0;
+  if (flags.isEqual) value |= 1 << 0;
+  if (flags.isLower) value |= 1 << 1;
+  if (flags.isLess) value |= 1 << 2;
+  return uint16(value);
+}
+export function decodeFlags(flags: UIntCompatible) {
+  flags = uint16(flags);
+  return {
+    isEqual: flags.asUInt(1).toNumber() === 1,
+    isLower: flags.shr(1).asUInt(1).toNumber() === 1,
+    isLess: flags.shr(2).asUInt(1).toNumber() === 1,
+  };
+}
+export type DecodedFlags = ReturnType<typeof decodeFlags>;
+
+export const jumpOperations = {
   0b1000: "JMP",
   0b0001: "JE",
   0b1001: "JNE",
@@ -61,10 +104,26 @@ export const jumpOpcodes = {
   0b0011: "JBE",
   0b1011: "JA",
 } as const;
+export type JumpOperation =
+  (typeof jumpOperations)[keyof typeof jumpOperations];
+export const jumpConditions: Record<
+  JumpOperation,
+  (flags: DecodedFlags) => boolean
+> = {
+  JMP: () => true,
+  JE: (flags) => flags.isEqual,
+  JNE: (flags) => !flags.isEqual,
+  JL: (flags) => flags.isLess,
+  JGE: (flags) => !flags.isLess,
+  JLE: (flags) => flags.isLess || flags.isEqual,
+  JG: (flags) => !flags.isLess && !flags.isEqual,
+  JB: (flags) => flags.isLower,
+  JAE: (flags) => !flags.isLower,
+  JBE: (flags) => flags.isLower || flags.isEqual,
+  JA: (flags) => !flags.isLower && !flags.isEqual,
+};
 
-export type JumpOpcode = (typeof jumpOpcodes)[keyof typeof jumpOpcodes];
-
-export const ramOpcodes = {
+export const ramOperations = {
   0b0000: "LOAD_8",
   0b0001: "STORE_8",
   0b0010: "LOAD_16",
@@ -74,15 +133,50 @@ export const ramOpcodes = {
   0b0110: "PLOAD_16",
   0b0111: "PSTORE_16",
 } as const;
+export type RamOperation = (typeof ramOperations)[keyof typeof ramOperations];
+export function decodeRamOpcode(number: number) {
+  const direction = number & 0b1 ? "STORE" : "LOAD";
+  const width = number & 0b10 ? 16 : 8;
+  const target = number & 0b100 ? "SSD" : "RAM";
+  return {
+    direction,
+    width,
+    target,
+  } as const;
+}
 
-export type RamOpcode = (typeof ramOpcodes)[keyof typeof ramOpcodes];
-
-export function registerName(index: number) {
-  if (index === 0) return "zr";
-  if (index === 14) return "sp";
-  if (index === 15) return "flags";
-  if (index >= 1 && index <= 13) return `r${index}`;
-  return undefined;
+export const registerNames = [
+  "zr", // 0
+  "r1",
+  "r2",
+  "r3",
+  "r4",
+  "r5",
+  "r6",
+  "r7",
+  "r8",
+  "r9",
+  "r10",
+  "r11",
+  "r12",
+  "r13",
+  "sp", // 14
+  "flags", // 15
+] as const;
+export type RegisterName = (typeof registerNames)[number];
+export function toRegisterIndex(index: RegisterName | number): number {
+  if (typeof index === "number") {
+    if (index < 0 || index >= registerNames.length) {
+      throw new Error(`Invalid register index: ${index}`);
+    }
+    return index;
+  } else {
+    const registerIndex = registerNames.indexOf(index);
+    if (registerIndex === -1) {
+      throw new Error(`Invalid register name: ${index}`);
+    }
+    return registerIndex;
+  }
 }
 
 export function decodeInstruction(instruction: UInt32) {
@@ -93,31 +187,15 @@ export function decodeInstruction(instruction: UInt32) {
   const argB = instruction.shr(8).asUInt(4);
   const isImmediate = instruction.shr(28).asUInt(1).toNumber() === 1;
   const immediateValue = instruction.asUInt(16);
-  const mode = modes[modeCode];
-  const base = {
+  return {
+    modeCode,
+    opcode,
     destination,
     argA,
     argB,
     isImmediate,
     immediateValue,
   } as const;
-  if (mode === "IO") {
-    const ioOpcode = ioOpcodes[opcode as keyof typeof ioOpcodes]!;
-    return { mode, opcode: ioOpcode, ...base };
-  }
-  if (mode === "ALU") {
-    const aluOpcode = aluOpcodes[opcode as keyof typeof aluOpcodes]!;
-    return { mode, opcode: aluOpcode, ...base };
-  }
-  if (mode === "JUMP") {
-    const jumpOpcode = jumpOpcodes[opcode as keyof typeof jumpOpcodes]!;
-    return { mode, opcode: jumpOpcode, ...base };
-  }
-  if (mode === "RAM") {
-    const ramOpcode = ramOpcodes[opcode as keyof typeof ramOpcodes]!;
-    return { mode, opcode: ramOpcode, ...base };
-  }
-  throw new Error(`Invalid mode code: ${modeCode}`);
 }
 
 export class Symphony implements CPU {
@@ -129,12 +207,20 @@ export class Symphony implements CPU {
   private output: LevelOutput = new EmptyIO();
   private instruction: UInt32 = uint32(0);
   private decodedInstruction = decodeInstruction(uint32(0));
+  private mode: Mode = "IO";
+  private operation = "NOP" as
+    | IoOperation
+    | AluOperation
+    | JumpOperation
+    | RamOperation;
 
   getState() {
     return {
       programCounter: this.programCounter,
       instruction: this.instruction,
       ...this.decodedInstruction,
+      mode: this.mode,
+      operation: this.operation,
       registers: this.registers,
       ram: this.ram,
       ssd: this.ssd,
@@ -161,49 +247,88 @@ export class Symphony implements CPU {
     this.instruction = this.ram.read(this.programCounter.toNumber(), 32);
     this.programCounter = this.programCounter.add(4);
     this.decodedInstruction = decodeInstruction(this.instruction);
-    switch (this.decodedInstruction.mode) {
+    const valueA = this.getValueA();
+    const valueB = this.getValueB();
+    this.mode = modes[this.decodedInstruction.modeCode]!;
+    switch (this.mode) {
       case "IO":
-        this.executeIOInstruction();
+        this.operation =
+          ioOperations[
+            this.decodedInstruction.opcode as keyof typeof ioOperations
+          ]!;
+        switch (this.operation) {
+          case "NOP":
+            break;
+          case "IN":
+            const inputValue = this.input.read();
+            this.writeDestinationRegister(inputValue);
+            break;
+          case "OUT":
+            this.output.write(this.getValueB());
+            break;
+          default:
+            break;
+        }
         break;
-
+      case "ALU":
+        this.operation =
+          aluOperations[
+            this.decodedInstruction.opcode as keyof typeof aluOperations
+          ]!;
+        const result = aluFunctions[this.operation](valueA, valueB);
+        this.writeDestinationRegister(result);
+        break;
+      case "JUMP":
+        const flags = this.readRegister("flags");
+        const decodedFlags = decodeFlags(flags);
+        this.operation =
+          jumpOperations[
+            this.decodedInstruction.opcode as keyof typeof jumpOperations
+          ]!;
+        const condition = jumpConditions[this.operation](decodedFlags);
+        if (condition) {
+          this.programCounter = valueB;
+        }
+        break;
+      case "RAM":
+        this.operation =
+          ramOperations[
+            this.decodedInstruction.opcode as keyof typeof ramOperations
+          ]!;
+        const { direction, width, target } = decodeRamOpcode(
+          this.decodedInstruction.opcode
+        );
+        const targetRam = target === "RAM" ? this.ram : this.ssd;
+        if (direction === "LOAD")
+          targetRam.write(valueB.toNumber(), uint(width, valueA));
+        else
+          this.writeDestinationRegister(
+            targetRam.read(valueB.toNumber(), width)
+          );
+        break;
       default:
         break;
     }
   }
 
-  writeRegister(index: number, value: UIntCompatible) {
+  writeRegister(index: number | RegisterName, value: UIntCompatible) {
+    index = toRegisterIndex(index);
     this.registers.write(index << 1, uint16(value));
   }
-  readRegister(index: number) {
+  readRegister(index: number | RegisterName) {
+    index = toRegisterIndex(index);
     return this.registers.read(index << 1, 16);
   }
-
   writeDestinationRegister(value: UIntCompatible) {
     const { destination } = this.decodedInstruction;
     this.writeRegister(destination.toNumber(), value);
   }
+  getValueA() {
+    const { argA } = this.decodedInstruction;
+    return this.readRegister(argA.toNumber());
+  }
   getValueB() {
     const { argB, isImmediate, immediateValue } = this.decodedInstruction;
     return isImmediate ? immediateValue : this.readRegister(argB.toNumber());
-  }
-
-  executeIOInstruction() {
-    if (this.decodedInstruction.mode !== "IO") {
-      throw new Error("Not an IO instruction");
-    }
-    const { opcode } = this.decodedInstruction;
-    switch (opcode) {
-      case "NOP":
-        break;
-      case "IN":
-        const inputValue = this.input.read();
-        this.writeDestinationRegister(inputValue);
-        break;
-      case "OUT":
-        this.output.write(this.getValueB());
-        break;
-      default:
-        break;
-    }
   }
 }

@@ -6,7 +6,7 @@ import { LevelRunner, type LevelRunnerOptions } from "@/LevelRunner";
 import type { UInt8 } from "@/UInt";
 
 import { assembleSymphony } from "./Assembler";
-import { Symphony, registerName } from "./Symphony";
+import { type RegisterName, Symphony, modes, registerNames } from "./Symphony";
 
 export type SymphonyProgram = MaybeArray<string> | UInt8[];
 
@@ -47,17 +47,17 @@ export class SymphonyRunner extends LevelRunner<Symphony> {
       const {
         programCounter,
         instruction,
-        mode,
-        opcode,
+        modeCode,
+        operation,
         destination,
         argA,
         argB,
         isImmediate,
         immediateValue,
       } = ctx.state;
-      const registerValues: Record<string, number> = {};
+      const registerValues = {} as Record<RegisterName, number>;
       for (let i = 0; i < 16; i++) {
-        const name = registerName(i)!;
+        const name = registerNames[i]!;
         registerValues[name] = ctx.cpu.readRegister(i).toNumber();
       }
       this.logger.debug(
@@ -70,8 +70,8 @@ export class SymphonyRunner extends LevelRunner<Symphony> {
             .toBytes()
             .map((b) => b.toBinaryString())
             .join("_"),
-          mode,
-          opcode,
+          mode: modes[modeCode]!,
+          operation,
           dist: destination.toNumber(),
           argA: argA.toNumber(),
           argB: isImmediate ? undefined : argB.toNumber(),
