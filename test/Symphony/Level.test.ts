@@ -2,7 +2,11 @@ import { buildTestLogger } from "@drsmile1001/testkit";
 import { describe, expect, test } from "bun:test";
 
 import { createMnemonicBuilder as builder } from "@/Symphony";
-import { SymphonyRunner, type SymphonyRunnerOptions } from "@/Symphony/Runner";
+import {
+  type SymphonyProgram,
+  SymphonyRunner,
+  type SymphonyRunnerOptions,
+} from "@/Symphony/Runner";
 
 const logger = buildTestLogger().extend("Symphony.Level");
 
@@ -16,7 +20,22 @@ describe("Symphony.Level", () => {
     });
   }
 
-  test("stack", () => {
+  function testStackLevel(program: SymphonyProgram) {
+    const input: number[] = [1, 10, 0, 20, 0, 0]; // push 1, push 10, pop, push 20, pop, pop
+    const expectedOutput = [10, 20, 1];
+
+    const { out } = createRunner({
+      program,
+      input,
+    }).tickWhile(
+      ({ out, tick }) => out.length < expectedOutput.length && tick < 1000
+    );
+
+    expect(out.map((v) => v.toNumber())).toEqual(expectedOutput);
+    logger.debug(`program:\n${program}`);
+  }
+
+  test("stack - basic", () => {
     // r1 = input
     // r2 = stack pointer
     // r3 = memory[r2]
@@ -38,17 +57,24 @@ describe("Symphony.Level", () => {
       .jmp("next")
       .build();
 
-    const input: number[] = [1, 10, 0, 20, 0, 0]; // push 1, push 10, pop, push 20, pop, pop
-    const expectedOutput = [10, 20, 1];
+    testStackLevel(program);
+  });
 
-    const { out } = createRunner({
-      program,
-      input,
-    }).tickWhile(
-      ({ out, tick }) => out.length < expectedOutput.length && tick < 1000
-    );
+  test("stack - synonym", () => {
+    const program = builder()
+      .label("next")
+      .in("r1")
+      .cmp("r1", 0)
+      .je("pop")
+      .label("push")
+      .push("r1")
+      .jmp("next")
+      .label("pop")
+      .pop("r2")
+      .out("r2")
+      .jmp("next")
+      .build();
 
-    expect(out.map((v) => v.toNumber())).toEqual(expectedOutput);
-    logger.debug(`program:\n${program}`);
+    testStackLevel(program);
   });
 });

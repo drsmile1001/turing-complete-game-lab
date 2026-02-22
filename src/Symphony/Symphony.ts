@@ -199,10 +199,10 @@ export function decodeInstruction(instruction: UInt32) {
 }
 
 export class Symphony implements CPU {
-  private ram = new RamDefault(25536);
+  private ram = new RamDefault(65536);
   private programCounter = uint16(0);
   private registers = new RamDefault(256);
-  private ssd = new RamDefault(25536);
+  private ssd = new RamDefault(65536);
   private input: LevelInput = new EmptyIO();
   private output: LevelOutput = new EmptyIO();
   private instruction: UInt32 = uint32(0);
