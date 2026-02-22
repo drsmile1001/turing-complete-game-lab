@@ -1,6 +1,6 @@
 import { type Result, err, isErr, ok } from "@drsmile1001/utils/Result";
 
-import { isDataWidth } from "@/UInt";
+import { isBytes } from "@/UInt";
 
 import { parseInstructionSyntaxLine } from "./InstructionSyntax";
 import { parseOutputBitLine } from "./OutputBit";
@@ -153,9 +153,9 @@ export function parseInstruction(text: string) {
       return sum + token.length;
     }
   }, 0);
-  if (!isDataWidth(dataWidth)) {
+  if (!isBytes(dataWidth)) {
     return err(
-      `指令 "${syntaxLine}" 的輸出位元總寬度必須是 8 到 64 之間的 8 的倍數，但目前是 ${dataWidth}`
+      `指令 "${syntaxLine}" 的輸出位元總寬度必須是 8 的倍數，但目前是 ${dataWidth}`
     );
   }
   //TODO: 檢查output bit 的reference是否在syntax裡有定義

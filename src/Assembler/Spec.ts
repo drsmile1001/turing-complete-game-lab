@@ -1,4 +1,4 @@
-import type { DataWidth, UInt } from "@/UInt";
+import type { UInt } from "@/UInt";
 
 export type Field<Bits extends number> = {
   name: string;
@@ -9,7 +9,7 @@ export type Field<Bits extends number> = {
 export type Instruction = {
   syntax: InstructionSyntaxToken[];
   outputBit: OutputBitToken[];
-  dataWidth: DataWidth;
+  dataWidth: number;
 };
 
 export type Spec = {

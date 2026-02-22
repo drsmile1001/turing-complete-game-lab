@@ -164,8 +164,9 @@ export function uint64(value: UIntCompatible) {
 
 export const vaildDataWidth = [8, 16, 24, 32, 40, 48, 56, 64] as const;
 export type DataWidth = (typeof vaildDataWidth)[number];
-export function isDataWidth(value: number): value is DataWidth {
-  return vaildDataWidth.includes(value as DataWidth);
+
+export function isBytes(value: number) {
+  return value % 8 === 0;
 }
 
 export type ByteArrayByBits<TotalBits extends number> = TotalBits extends 8

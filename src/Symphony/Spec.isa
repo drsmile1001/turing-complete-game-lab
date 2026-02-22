@@ -81,10 +81,6 @@ or %a(register), %b(register), %c(register)
 00100001 aaaabbbb 0000cccc 00000000
 OR %b and %c and store the result in %a.
 
-mov %a(register), %b(register)
-00100001 aaaabbbb 00000000 00000000
-Copies from register %b to register %a.
-
 and %a(register), %b(register), %c(register)
 00100010 aaaabbbb 0000cccc 00000000
 AND %b and %c and store the result in %a.
@@ -93,10 +89,6 @@ nor %a(register), %b(register), %c(register)
 00100011 aaaabbbb 0000cccc 00000000
 NOR %b and %c and store the result in %a.
 
-not %a(register), %b(register)
-00100011 aaaabbbb 00000000 00000000
-Bitwise NOT each bit in register %b and store the result in %a.
-
 add %a(register), %b(register), %c(register)
 00100100 aaaabbbb 0000cccc 00000000
 ADD %b and %c and store the result in %a.
@@ -104,10 +96,6 @@ ADD %b and %c and store the result in %a.
 sub %a(register), %b(register), %c(register)
 00100101 aaaabbbb 0000cccc 00000000
 SUB %b and %c and store the result in %a.
-
-neg %a(register), %b(register)
-00100101 aaaa0000 0000bbbb 00000000
-Negate register %b and store the result in %a.
 
 xor %a(register), %b(register), %c(register)
 00100110 aaaabbbb 0000cccc 00000000
@@ -138,17 +126,17 @@ or %a(register), %b(register), %c(immediate)
 00110001 aaaabbbb cccccccc cccccccc
 OR %b and %c and store the result in %a.
 
-imm %a(register), %b(immediate)
-00110001 aaaa0000 bbbbbbbb bbbbbbbb
-Set %a to the immediate value %b.
-
-and %a(register), %b(register), %c(immediate)
-00110010 aaaabbbb cccccccc cccccccc
-AND %b and %c and store the result in %a.
+or %a(register), %b(register), %c(immediate)
+00110001 aaaabbbb cccccccc cccccccc
+OR %b and %c and store the result in %a.
 
 nor %a(register), %b(register), %c(immediate)
 00110011 aaaabbbb cccccccc cccccccc
 NOR %b and %c and store the result in %a.
+
+and %a(register), %b(register), %c(immediate)
+00110010 aaaabbbb cccccccc cccccccc
+AND %b and %c and store the result in %a.
 
 add %a(register), %b(register), %c(immediate)
 00110100 aaaabbbb cccccccc cccccccc
@@ -296,3 +284,47 @@ Store %value to %address in SSD
 pstore_16 [%address(immediate)], %value(register)
 01110111 0000vvvv aaaaaaaa aaaaaaaa
 Store %value to %address in SSD
+
+
+
+mov %a(register), %b(register)
+00100001 aaaabbbb 00000000 00000000
+Move from %b to %a
+
+neg %a(register), %b(register)
+00100101 aaaa0000 0000bbbb 00000000
+Neg %b and store the result in %a.
+
+not %a(register), %b(register)
+00100011 aaaa0000 0000bbbb 00000000
+Not %b and store the result in %a.
+
+
+mov %a(register), %b(immediate)
+00110001 aaaa0000 bbbbbbbb bbbbbbbb
+Move from %b to %a
+
+neg %a(register), %b(immediate)
+00110101 aaaa0000 bbbbbbbb bbbbbbbb
+Neg %b and store the result in %a.
+
+not %a(register), %b(immediate)
+00110011 aaaa0000 bbbbbbbb bbbbbbbb
+Not %b and store the result in %a.
+
+
+push %a(register)
+00110101 11101110 00000000 00000010   01100011 0000aaaa 00001110 00000000
+Pushes %a on to the stack. This instruction is a synonym for:   sub sp, sp, 2   store_16 [sp], %a
+
+pop %a(register)
+01100010 aaaa0000 00001110 00000000   00110100 11101110 00000000 00000010
+Pops %a off the stack. This instruction is a synonym for:   load_16 %a, [sp]   add sp, sp, 2
+
+call %a(label)
+00001000 11110000 00000000 00000000   00110100 11111111 00000000 00010100   00110101 11101110 00000000 00000010   01100011 00001111 00001110 00000000   01011000 00001111 aaaaaaaa aaaaaaaa
+Calls %a. Overwrites the flag register. This instruction is a synonym for:   counter flags   add flags, flags, 20   sub sp, sp, 2   store_16 [sp], flags   jmp %a
+
+ret
+01100010 11110000 00001110 00000000   00110100 11101110 00000000 00000010   01001000 00001111 00001111 00000000
+Returns from the last function call. Overwrites the flag register. This instruction is a synonym for:   load_16 flags, [sp]   add sp, sp, 2   jmp flags

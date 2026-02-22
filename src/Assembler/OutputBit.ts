@@ -42,7 +42,7 @@ export function readLiteral(
   }
   return ok({
     type: "LITERAL",
-    value: uint(literalStr.length, parseInt(literalStr, 2)),
+    value: uint(literalStr.length, BigInt(`0b${literalStr}`)),
   });
 }
 
