@@ -9,9 +9,9 @@ import {
 } from "@/Overtrue";
 import { type UInt8, uint64 } from "@/UInt";
 
-const logger = buildTestLogger().extend("Overtrue.Mission");
+const logger = buildTestLogger().extend("Overtrue.Level");
 
-describe("Overtrue.Mission", () => {
+describe("Overtrue.Level", () => {
   test("每個輸入加5後輸出", () => {
     const program: OvertureMnemonic[] = [
       `imm 5`,

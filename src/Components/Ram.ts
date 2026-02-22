@@ -8,7 +8,7 @@ import {
 } from "@/UInt";
 
 export interface Ram {
-  dump(): UInt8[];
+  dump(start?: number, end?: number): UInt8[];
   load(data: UInt8[]): void;
   read<Bits extends DataWidth>(address: number, bits: Bits): UInt<Bits>;
   write<Bits extends DataWidth>(address: number, value: UInt<Bits>): void;
@@ -27,8 +27,8 @@ export class RamDefault implements Ram {
     this.bytes = new Array(size).fill(uint8(0));
   }
 
-  dump(): UInt8[] {
-    return [...this.bytes];
+  dump(start?: number, end?: number): UInt8[] {
+    return this.bytes.slice(start, end);
   }
   load(data: UIntCompatible[]): void {
     this.bytes.fill(uint8(0));
