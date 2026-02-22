@@ -81,6 +81,10 @@ or %a(register), %b(register), %c(register)
 00100001 aaaabbbb 0000cccc 00000000
 OR %b and %c and store the result in %a.
 
+mov %a(register), %b(register)
+00100001 aaaabbbb 00000000 00000000
+Copies from register %b to register %a.
+
 and %a(register), %b(register), %c(register)
 00100010 aaaabbbb 0000cccc 00000000
 AND %b and %c and store the result in %a.
@@ -89,6 +93,10 @@ nor %a(register), %b(register), %c(register)
 00100011 aaaabbbb 0000cccc 00000000
 NOR %b and %c and store the result in %a.
 
+not %a(register), %b(register)
+00100011 aaaabbbb 00000000 00000000
+Bitwise NOT each bit in register %b and store the result in %a.
+
 add %a(register), %b(register), %c(register)
 00100100 aaaabbbb 0000cccc 00000000
 ADD %b and %c and store the result in %a.
@@ -96,6 +104,10 @@ ADD %b and %c and store the result in %a.
 sub %a(register), %b(register), %c(register)
 00100101 aaaabbbb 0000cccc 00000000
 SUB %b and %c and store the result in %a.
+
+neg %a(register), %b(register)
+00100101 aaaa0000 0000bbbb 00000000
+Negate register %b and store the result in %a.
 
 xor %a(register), %b(register), %c(register)
 00100110 aaaabbbb 0000cccc 00000000
@@ -125,6 +137,10 @@ NAND %b and %c and store the result in %a.
 or %a(register), %b(register), %c(immediate)
 00110001 aaaabbbb cccccccc cccccccc
 OR %b and %c and store the result in %a.
+
+imm %a(register), %b(immediate)
+00110001 aaaa0000 bbbbbbbb bbbbbbbb
+Set %a to the immediate value %b.
 
 and %a(register), %b(register), %c(immediate)
 00110010 aaaabbbb cccccccc cccccccc

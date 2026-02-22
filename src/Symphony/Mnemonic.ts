@@ -37,6 +37,8 @@ const instructions = {
     src1: RegisterField,
     src2: RegisterField | number
   ) => `or ${dest}, ${src1}, ${src2}`,
+  mov: (dest: RegisterField, src: RegisterField) => `mov ${dest}, ${src}`,
+  imm: (dest: RegisterField, src: number) => `imm ${dest}, ${src}`,
   and: (
     dest: RegisterField,
     src1: RegisterField,
@@ -47,6 +49,7 @@ const instructions = {
     src1: RegisterField,
     src2: RegisterField | number
   ) => `nor ${dest}, ${src1}, ${src2}`,
+  not: (dest: RegisterField, src: RegisterField) => `not ${dest}, ${src}`,
   add: (
     dest: RegisterField,
     src1: RegisterField,
@@ -57,6 +60,7 @@ const instructions = {
     src1: RegisterField,
     src2: RegisterField | number
   ) => `sub ${dest}, ${src1}, ${src2}`,
+  neg: (dest: RegisterField, src: RegisterField) => `neg ${dest}, ${src}`,
   xor: (
     dest: RegisterField,
     src1: RegisterField,

@@ -152,6 +152,16 @@ describe("Symphony", () => {
     runAndCheckState(programAndExpected);
   });
 
+  test("alias", () => {
+    const programAndExpected: InstructionAndExpectation[] = [
+      [`imm r1, ${0b0110}`, { registers: { r1: 0b0110 } }],
+      [`mov r2, r1`, { registers: { r2: 0b0110 } }],
+      [`not r3, r1`, { registers: { r3: uint16(0b0110).not().toNumber() } }],
+      [`neg r4, r1`, { registers: { r4: uint16(0).sub(0b0110).toNumber() } }],
+    ];
+    runAndCheckState(programAndExpected);
+  });
+
   const comparisonTestCases: [number, number, DecodedFlags][] = [
     [1, 1, { isEqual: true, isLower: false, isLess: false }],
     [1, 2, { isEqual: false, isLower: true, isLess: true }],
