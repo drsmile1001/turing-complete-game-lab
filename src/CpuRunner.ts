@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { type CPU } from "@/Components/CPU";
+import { type CPU, type CpuTraceEvent } from "@/Components/CPU";
 import { type UInt8, type UIntCompatible } from "@/UInt";
 
 import {
@@ -20,26 +20,18 @@ export type CpuRunnerSetupOptions<TProgram> = {
 export abstract class CpuRunner<TCPU extends CPU, TProgram> {
   cpu: TCPU;
   output = new QueueIO();
-  currentTick = 0;
-  trace: Array<{
-    tick: number;
-    event: Record<string, unknown>;
-  }> = [];
+  trace: CpuTraceEvent[] = [];
 
   constructor(cpu: TCPU) {
     this.cpu = cpu;
     this.cpu.setTraceSink((event) => {
-      this.trace.push({
-        tick: this.currentTick,
-        event,
-      });
+      this.trace.push(event);
     });
   }
 
   protected abstract compileProgram(program: TProgram): UInt8[];
 
   setup(options: CpuRunnerSetupOptions<TProgram>): void {
-    this.currentTick = 0;
     this.trace = [];
     this.output = new QueueIO();
 
@@ -63,9 +55,8 @@ export abstract class CpuRunner<TCPU extends CPU, TProgram> {
 
   tick() {
     this.cpu.tick();
-    this.currentTick++;
     return {
-      tick: this.currentTick,
+      tick: this.cpu.currentTick,
       cpu: this.cpu,
       out: this.output.values,
     };
@@ -77,11 +68,10 @@ export abstract class CpuRunner<TCPU extends CPU, TProgram> {
 
   toTraceJsonl() {
     return this.trace
-      .map((v, i) =>
+      .map((event, i) =>
         JSON.stringify({
-          tick: v.tick,
           index: i,
-          ...v.event,
+          ...event,
         })
       )
       .join("\n");
@@ -102,7 +92,7 @@ export abstract class CpuRunner<TCPU extends CPU, TProgram> {
       }
     }
     return {
-      tick: this.currentTick,
+      tick: this.cpu.currentTick,
       cpu: this.cpu,
       out: this.output.values,
     };

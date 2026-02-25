@@ -70,7 +70,7 @@ export class Overture implements CPU {
   output: LevelOutput = new EmptyIO();
   instruction: UInt8 = uint8(0);
   traceSink?: CpuTraceSink;
-  tickCount = 0;
+  currentTick = -1;
 
   setup(options: {
     program?: UInt8[];
@@ -87,15 +87,16 @@ export class Overture implements CPU {
     if (output) {
       this.output = output;
     }
+    this.currentTick = -1;
   }
 
   setTraceSink(sink?: CpuTraceSink): void {
     this.traceSink = sink;
   }
 
-  tick() {
-    this.tickCount++;
-    const tick = this.tickCount;
+  tick(): number {
+    this.currentTick++;
+    const tick = this.currentTick;
     const pcBefore = this.programCounter.toNumber();
     this.instruction = this.ram.read(this.programCounter.toNumber(), 8);
     this.emit({
@@ -149,6 +150,7 @@ export class Overture implements CPU {
       tick,
       pcAfter: this.programCounter.toNumber(),
     });
+    return tick;
   }
 
   private immediate() {
@@ -167,7 +169,7 @@ export class Overture implements CPU {
       this.output.write(sourceValue);
       this.emit({
         type: "io:output-write",
-        tick: this.tickCount,
+        tick: this.currentTick,
         value: sourceValue.toNumber(),
         from: source === 0b110 ? "IN" : `R${source}`,
       });
@@ -177,7 +179,7 @@ export class Overture implements CPU {
     if (source === 0b110) {
       this.emit({
         type: "io:input-read",
-        tick: this.tickCount,
+        tick: this.currentTick,
         value: sourceValue.toNumber(),
         toRegister: destination === 0b110 ? undefined : destination,
       });
@@ -266,7 +268,7 @@ export class Overture implements CPU {
     }
     this.emit({
       type: "jump:decision",
-      tick: this.tickCount,
+      tick: this.currentTick,
       condition: conditionDesc,
       testValue: test.toNumber(),
       taken: shouldJump,
@@ -279,7 +281,7 @@ export class Overture implements CPU {
     this.registers[index] = value;
     this.emit({
       type: "register:write",
-      tick: this.tickCount,
+      tick: this.currentTick,
       register: index,
       before,
       after: value.toNumber(),

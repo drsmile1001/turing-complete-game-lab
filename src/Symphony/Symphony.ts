@@ -285,7 +285,7 @@ export class Symphony implements CPU {
     | JumpOperation
     | RamOperation;
   traceSink?: CpuTraceSink;
-  currentTick = 0;
+  currentTick = -1;
 
   setup(options: {
     program?: UInt8[];
@@ -301,13 +301,14 @@ export class Symphony implements CPU {
     if (options.output) {
       this.output = options.output;
     }
+    this.currentTick = -1;
   }
 
   setTraceSink(sink?: CpuTraceSink): void {
     this.traceSink = sink;
   }
 
-  tick(): void {
+  tick(): number {
     this.currentTick++;
     const pcBefore = this.programCounter.toNumber();
     this.instruction = this.ram.read(this.programCounter.toNumber(), 32);
@@ -462,6 +463,7 @@ export class Symphony implements CPU {
       tick: this.currentTick,
       pcAfter: this.programCounter.toNumber(),
     });
+    return this.currentTick;
   }
 
   writeRegister(index: number | RegisterName, value: UIntCompatible) {
