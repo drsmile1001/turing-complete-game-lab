@@ -29,7 +29,7 @@ function sanitizeFileName(value: string): string {
 }
 
 function timestampForFileName(): string {
-  return new Date().toISOString().replace(/[:.]/g, "-");
+  return new Date().toISOString().replace(/[-:.]/g, "");
 }
 
 export class CpuTestContext<TRunner extends TraceDumpableRunner> {
@@ -74,7 +74,7 @@ export class CpuTestContext<TRunner extends TraceDumpableRunner> {
         traceConfig.TEST_DUMP_TRACE === "always" ||
         (traceConfig.TEST_DUMP_TRACE === "onFailure" && failed);
       if (shouldDumpTrace) {
-        const fileName = `${sanitizeFileName(name)}-${timestampForFileName()}.jsonl`;
+        const fileName = `${timestampForFileName()}-${sanitizeFileName(name)}.jsonl`;
         const filePath = `${this.traceDir}/${this.suiteName}/${fileName}`;
         await runner.dumpTrace(filePath);
       }

@@ -5,7 +5,8 @@
   "scripts": {
     "index": "bun run src/index.ts",
     "format": "bunx prettier . --write",
-    "typecheck": "bunx tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit",
+    "clean:traces": "bun -e \"import { rm } from 'node:fs/promises'; await rm('artifacts/traces', { recursive: true, force: true });\""
   },
   "dependencies": {
     "@drsmile1001/config-factory": "^0.1.0",
