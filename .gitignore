@@ -2,6 +2,7 @@
 node_modules/
 bun.lockb
 *.bun
+artifacts/traces/
 
 # 編譯輸出（若日後 build 為 JS）
 dist/

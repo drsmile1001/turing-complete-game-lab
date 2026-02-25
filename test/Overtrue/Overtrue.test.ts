@@ -1,10 +1,7 @@
-import { buildTestLogger } from "@drsmile1001/testkit";
 import { describe, expect, test } from "bun:test";
 
 import { type COND, OvertrueRunner, type OvertureMnemonic } from "@/Overtrue";
 import { type UInt8, uint8 } from "@/UInt";
-
-const logger = buildTestLogger().extend("Overtrue");
 
 describe("Overtrue", () => {
   test("可以存取所有寄存器", () => {
@@ -28,13 +25,11 @@ describe("Overtrue", () => {
       `mov out, r0`,
     ];
 
-    const runner = new OvertrueRunner({
-      logger,
-      program,
-    });
+    const runner = new OvertrueRunner();
+    runner.setup({ program });
 
     const { cpu, out } = runner.tickWhile(({ out }) => out.length < 6);
-    const { registers } = cpu.getState();
+    const { registers } = cpu;
     expect(registers.map((r) => r.toNumber())).toEqual([
       60, 10, 20, 30, 40, 50,
     ]);
@@ -63,10 +58,8 @@ describe("Overtrue", () => {
         `mov out, r5`, // 跳則輸出20
       ];
 
-      const runner = new OvertrueRunner({
-        logger,
-        program,
-      });
+      const runner = new OvertrueRunner();
+      runner.setup({ program });
       const { out } = runner.tickWhile(({ out }) => out.length < 1);
       expect(out.map((r) => r.toNumber())).toEqual([
         options.shouldJump ? 20 : 10,

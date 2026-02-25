@@ -1,4 +1,4 @@
-import type { CPU } from "@/Components/CPU";
+import type { CPU, CpuTraceSink } from "@/Components/CPU";
 import {
   EmptyIO,
   type LevelInput,
@@ -15,24 +15,62 @@ export type OvertureState = {
   lastInstructionDescription: string;
 };
 
-export class Overture implements CPU {
-  private ram = new RamDefault(256);
-  private programCounter = uint8(0);
-  private registers: UInt8[] = new Array(6).fill(uint8(0));
-  private input: LevelInput = new EmptyIO();
-  private output: LevelOutput = new EmptyIO();
-  private instruction: UInt8 = uint8(0);
-  private instructionSummary: string = "";
-
-  getState() {
-    return {
-      programCounter: this.programCounter,
-      registers: this.registers,
-      ram: this.ram,
-      instruction: this.instruction,
-      instructionSummary: this.instructionSummary,
+export type OvertrueTraceEvent =
+  | {
+      type: "tick:start";
+      tick: number;
+      pcBefore: number;
+      instruction: number;
+    }
+  | {
+      type: "instruction:decoded";
+      tick: number;
+      kind: "immediate" | "calculate" | "move" | "conditional";
+      opcode: number;
+    }
+  | {
+      type: "register:write";
+      tick: number;
+      register: number;
+      before: number;
+      after: number;
+      reason: string;
+    }
+  | {
+      type: "io:input-read";
+      tick: number;
+      value: number;
+      toRegister?: number;
+    }
+  | {
+      type: "io:output-write";
+      tick: number;
+      value: number;
+      from: string;
+    }
+  | {
+      type: "jump:decision";
+      tick: number;
+      condition: string;
+      testValue: number;
+      taken: boolean;
+      target?: number;
+    }
+  | {
+      type: "tick:end";
+      tick: number;
+      pcAfter: number;
     };
-  }
+
+export class Overture implements CPU {
+  ram = new RamDefault(256);
+  programCounter = uint8(0);
+  registers: UInt8[] = new Array(6).fill(uint8(0));
+  input: LevelInput = new EmptyIO();
+  output: LevelOutput = new EmptyIO();
+  instruction: UInt8 = uint8(0);
+  traceSink?: CpuTraceSink;
+  tickCount = 0;
 
   setup(options: {
     program?: UInt8[];
@@ -51,30 +89,71 @@ export class Overture implements CPU {
     }
   }
 
+  setTraceSink(sink?: CpuTraceSink): void {
+    this.traceSink = sink;
+  }
+
   tick() {
+    this.tickCount++;
+    const tick = this.tickCount;
+    const pcBefore = this.programCounter.toNumber();
     this.instruction = this.ram.read(this.programCounter.toNumber(), 8);
+    this.emit({
+      type: "tick:start",
+      tick,
+      pcBefore,
+      instruction: this.instruction.toNumber(),
+    });
     this.programCounter = this.programCounter.add(1);
     const opcode = this.instruction.and(0b11000000).shr(6).toNumber();
     switch (opcode) {
       case 0b00:
         this.immediate();
+        this.emit({
+          type: "instruction:decoded",
+          tick,
+          kind: "immediate",
+          opcode,
+        });
         break;
       case 0b01:
         this.calculate();
+        this.emit({
+          type: "instruction:decoded",
+          tick,
+          kind: "calculate",
+          opcode,
+        });
         break;
       case 0b10:
         this.move();
+        this.emit({
+          type: "instruction:decoded",
+          tick,
+          kind: "move",
+          opcode,
+        });
         break;
       case 0b11:
         this.conditional();
+        this.emit({
+          type: "instruction:decoded",
+          tick,
+          kind: "conditional",
+          opcode,
+        });
         break;
     }
+    this.emit({
+      type: "tick:end",
+      tick,
+      pcAfter: this.programCounter.toNumber(),
+    });
   }
 
   private immediate() {
     const value = this.instruction.and(0b00111111);
-    this.registers[0] = value;
-    this.instructionSummary = `load immediate ${value.toNumber()} to R0`;
+    this.writeRegister(0, value, "immediate");
   }
 
   private move() {
@@ -86,12 +165,23 @@ export class Overture implements CPU {
     const destination = this.instruction.and(0b00000111).toNumber();
     if (destination === 0b110) {
       this.output.write(sourceValue);
+      this.emit({
+        type: "io:output-write",
+        tick: this.tickCount,
+        value: sourceValue.toNumber(),
+        from: source === 0b110 ? "IN" : `R${source}`,
+      });
     } else {
-      this.registers[destination] = sourceValue;
+      this.writeRegister(destination, sourceValue, "move");
     }
-    const sourceDesc = source === 0b110 ? "IN" : `R${source}`;
-    const destDesc = destination === 0b110 ? "OUT" : `R${destination}`;
-    this.instructionSummary = `move from ${sourceDesc} to ${destDesc}`;
+    if (source === 0b110) {
+      this.emit({
+        type: "io:input-read",
+        tick: this.tickCount,
+        value: sourceValue.toNumber(),
+        toRegister: destination === 0b110 ? undefined : destination,
+      });
+    }
   }
 
   private calculate() {
@@ -128,8 +218,7 @@ export class Overture implements CPU {
       default:
         break;
     }
-    this.registers[3] = result;
-    this.instructionSummary = `calculate ${operationDesc} of R1=${a.toNumber()} and R2=${b.toNumber()}, result=${result.toNumber()}`;
+    this.writeRegister(3, result, "calculate");
   }
 
   private conditional() {
@@ -171,9 +260,34 @@ export class Overture implements CPU {
         conditionDesc = "JG";
         break;
     }
+    const target = this.registers[0]!.toNumber();
     if (shouldJump) {
       this.programCounter = this.registers[0]!;
     }
-    this.instructionSummary = `conditional jump with condition ${conditionDesc} based on R3=${test.toNumber()}, jump=${shouldJump}`;
+    this.emit({
+      type: "jump:decision",
+      tick: this.tickCount,
+      condition: conditionDesc,
+      testValue: test.toNumber(),
+      taken: shouldJump,
+      target: shouldJump ? target : undefined,
+    });
+  }
+
+  private writeRegister(index: number, value: UInt8, reason: string) {
+    const before = (this.registers[index] ?? uint8(0)).toNumber();
+    this.registers[index] = value;
+    this.emit({
+      type: "register:write",
+      tick: this.tickCount,
+      register: index,
+      before,
+      after: value.toNumber(),
+      reason,
+    });
+  }
+
+  private emit(event: OvertrueTraceEvent) {
+    this.traceSink?.(event);
   }
 }

@@ -1,113 +1,111 @@
-import { buildTestLogger } from "@drsmile1001/testkit";
 import { describe, expect, test } from "bun:test";
 
 import { type LevelInput, type LevelOutput } from "@/Components/LevelIO";
-import {
-  MnemonicBuilder,
-  OvertrueRunner,
-  type OvertureMnemonic,
-} from "@/Overtrue";
+import { MnemonicBuilder, OvertrueRunner } from "@/Overtrue";
 import { type UInt8, uint64 } from "@/UInt";
 
-const logger = buildTestLogger().extend("Overtrue.Level");
+import { createCpuTestContext } from "~test/helpers/CpuTestContext";
 
 describe("Overtrue.Level", () => {
-  test("每個輸入加5後輸出", () => {
-    const program: OvertureMnemonic[] = [
-      `imm 5`,
-      `mov r2, r0`,
-      `mov r1, in`,
-      `add`,
-      `mov out, r3`,
-      `imm 0`,
-      `jmp`,
-    ];
-
-    const input = [1, 10, 5, 20, 125];
-
-    const runner = new OvertrueRunner({
-      logger,
-      program,
-      input,
-    });
-    const { out } = runner.tickWhile(({ out }) => out.length < input.length);
-    expect(out.map((v) => v.toNumber())).toEqual(input.map((v) => v + 5));
+  const ctx = createCpuTestContext(() => new OvertrueRunner(), {
+    suite: "Overtrue.Level",
   });
 
-  test("每個輸入乘6後輸出", () => {
-    const program: OvertureMnemonic[] = [
-      "start:",
-      "mov r1, in", // r1 = input
-      "mov r2, r1", // r2 = input
-      "add", // r3 = input * 2
-      "mov r1, r3", // r1 = input * 2
-      "mov r2, r1", // r2 = input * 2
-      "add", // r3 = input * 4
-      "mov r1, r3", // r1 = input * 4
-      "add", // r3 = input * 6
-      "mov out, r3", // output input * 6
-      "imm start",
-      "jmp",
-    ];
-    const input = [1, 10, 5, 20, 40];
-    const runner = new OvertrueRunner({
-      logger,
-      program,
-      input,
-    });
-    const { out } = runner.tickWhile(({ out }) => out.length < input.length);
-    expect(out.map((v) => v.toNumber())).toEqual(
-      input.map((v) => (v * 6) & 0xff)
-    );
-  });
+  test(
+    "每個輸入加5後輸出",
+    ctx.test("add-5", (runner) => {
+      runner.setup({
+        program: [
+          `imm 5`,
+          `mov r2, r0`,
+          `mov r1, in`,
+          `add`,
+          `mov out, r3`,
+          `imm 0`,
+          `jmp`,
+        ],
+        input: [1, 10, 5, 20, 125],
+      });
+      const input = [1, 10, 5, 20, 125];
+      const { out } = runner.tickWhile(({ out }) => out.length < input.length);
+      expect(out.map((v) => v.toNumber())).toEqual(input.map((v) => v + 5));
+    })
+  );
 
-  test("持續取用輸入，取到37時輸出讀取次數", () => {
-    const program = new MnemonicBuilder()
-      .label("next_value")
-      .imm(1)
-      .mov("r0", "r2") // r2 = 1
-      .mov("r4", "r1") // r1 = count
-      .add() // r3 = count + 1
-      .mov("r3", "r4") // r4 = count + 1
-      .imm(37)
-      .mov("r0", "r2") // r2 = 37
-      .mov("in", "r1") // r1 = input
-      .sub() // r3 = input - 37,
-      .imm("found")
-      .jz() // if input == 37 jump to found
-      .imm("next_value")
-      .jmp()
-      .label("found")
-      .mov("r4", "out") // output count
-      .imm(0)
-      .mov("r0", "r4") // r4 = count = 0
-      .imm("next_value")
-      .jmp()
-      .toLines();
+  test(
+    "每個輸入乘6後輸出",
+    ctx.test("multiply-6", (runner) => {
+      runner.setup({
+        program: [
+          "start:",
+          "mov r1, in",
+          "mov r2, r1",
+          "add",
+          "mov r1, r3",
+          "mov r2, r1",
+          "add",
+          "mov r1, r3",
+          "add",
+          "mov out, r3",
+          "imm start",
+          "jmp",
+        ],
+        input: [1, 10, 5, 20, 40],
+      });
+      const input = [1, 10, 5, 20, 40];
+      const { out } = runner.tickWhile(({ out }) => out.length < input.length);
+      expect(out.map((v) => v.toNumber())).toEqual(
+        input.map((v) => (v * 6) & 0xff)
+      );
+    })
+  );
 
-    const randomNumbers = Array.from({ length: 100 }, () =>
-      Math.floor(Math.random() * 256)
-    ).filter((v) => v !== 37);
-    const gaps = [10, 15, 1, 5];
-    const input = gaps
-      .map((v) => {
-        const numbers = randomNumbers.splice(0, v);
-        return [...numbers, 37];
-      })
-      .flat();
+  test(
+    "持續取用輸入，取到37時輸出讀取次數",
+    ctx.test("find-37-count", (runner) => {
+      const randomNumbers = Array.from({ length: 100 }, () =>
+        Math.floor(Math.random() * 256)
+      ).filter((v) => v !== 37);
+      const gaps = [10, 15, 1, 5];
+      const input = gaps
+        .map((v) => {
+          const numbers = randomNumbers.splice(0, v);
+          return [...numbers, 37];
+        })
+        .flat();
+      runner.setup({
+        program: new MnemonicBuilder()
+          .label("next_value")
+          .imm(1)
+          .mov("r0", "r2")
+          .mov("r4", "r1")
+          .add()
+          .mov("r3", "r4")
+          .imm(37)
+          .mov("r0", "r2")
+          .mov("in", "r1")
+          .sub()
+          .imm("found")
+          .jz()
+          .imm("next_value")
+          .jmp()
+          .label("found")
+          .mov("r4", "out")
+          .imm(0)
+          .mov("r0", "r4")
+          .imm("next_value")
+          .jmp()
+          .toLines(),
+        input,
+      });
+      const { out } = runner.tickWhile(
+        ({ out, tick }) => out.length < 4 && tick < 1000
+      );
+      expect(out.map((v) => v.toNumber())).toEqual(gaps.map((v) => v + 1));
+    })
+  );
 
-    const runner = new OvertrueRunner({
-      logger,
-      program,
-      input,
-    });
-    const { out } = runner.tickWhile(
-      ({ out, tick }) => out.length < 4 && tick < 1000
-    );
-    expect(out.map((v) => v.toNumber())).toEqual(gaps.map((v) => v + 1));
-  });
-
-  test("猜數字", () => {
+  test("猜數字", async () => {
     const program = new MnemonicBuilder()
       .label("start")
       .imm(1)
@@ -141,44 +139,40 @@ describe("Overtrue.Level", () => {
     const doorPort = new LevelDoor();
     const testNumbers = [0, 1, 10, 50, 100, 200, 250, 255];
     for (const n of testNumbers) {
-      doorPort.setNumber(n);
-      const runner = new OvertrueRunner({
-        logger,
-        program,
-        input: doorPort,
-        output: doorPort,
+      await ctx.case(`guess-${n}`, (runner) => {
+        doorPort.setNumber(n);
+        runner.setup({ program, input: doorPort, output: doorPort });
+        runner.tickWhile(({ tick }) => !doorPort.match && tick < 2000);
+        expect(doorPort.match).toBe(true);
       });
-      runner.tickWhile(({ tick }) => !doorPort.match && tick < 2000);
-      expect(doorPort.match).toBe(true);
     }
   });
 
-  test("取 mod 4", () => {
-    const program = new MnemonicBuilder()
-      .imm(3)
-      .mov("r0", "r2") // r2 = 3
-      .imm("start")
-      .label("start")
-      .mov("in", "r1") // r1 = input
-      .and() // r3 = input & 3
-      .mov("r3", "out") // output input & 3
-      .jmp()
-      .toLines();
+  test(
+    "取 mod 4",
+    ctx.test("mod-4", (runner) => {
+      const program = new MnemonicBuilder()
+        .imm(3)
+        .mov("r0", "r2") // r2 = 3
+        .imm("start")
+        .label("start")
+        .mov("in", "r1") // r1 = input
+        .and() // r3 = input & 3
+        .mov("r3", "out") // output input & 3
+        .jmp()
+        .toLines();
 
-    const input = [1, 10, 5, 20, 40];
-    const runner = new OvertrueRunner({
-      logger,
-      program,
-      input,
-    });
-    const { out } = runner.tickWhile(
-      ({ out, tick }) => out.length < input.length && tick < 100
-    );
+      const input = [1, 10, 5, 20, 40];
+      runner.setup({ program, input });
+      const { out } = runner.tickWhile(
+        ({ out, tick }) => out.length < input.length && tick < 100
+      );
 
-    expect(out.map((v) => v.toNumber())).toEqual(
-      input.map((v) => (v % 4) & 0xff)
-    );
-  });
+      expect(out.map((v) => v.toNumber())).toEqual(
+        input.map((v) => (v % 4) & 0xff)
+      );
+    })
+  );
 
   test("走迷宮", () => {
     // 0 = turn left, 1 = go forward, 2 = turn right
@@ -205,51 +199,50 @@ describe("Overtrue.Level", () => {
       .toLines();
   });
 
-  test("xor", () => {
-    // c = nand(a, b)
-    // d = nand(a, c)
-    // e = nand(b, c)
-    // f = nand(d, e) = a ^ b
-    const program = new MnemonicBuilder()
-      .label("start")
-      .mov("in", "r1") // r1 = input A
-      .mov("in", "r2") // r2 = input B
-      .nand() // r3 = nand(a, b) = c
-      .mov("r2", "r4") // r4 = b
-      .mov("r3", "r2") // r2 = c
-      .nand() // r3 = nand(a, c) = d
-      .mov("r3", "r5") // r5 = d
-      .mov("r4", "r1") // r1 = b
-      .nand() // r3 = nand(b, c) = e
-      .mov("r3", "r1") // r1 = e
-      .mov("r5", "r2") // r2 = d
-      .nand() // r3 = nand(d, e) = f = a ^ b
-      .mov("r3", "out") // output f
-      .imm("start")
-      .jmp()
-      .toLines();
-    const inputPairs = [
-      [0b00000000, 0b00000000], // 0 ^ 0 = 0,
-      [0b00000000, 0b00000001], // 0 ^ 1 = 1,
-      [0b00000001, 0b00000000], // 0 ^ 1 = 1,
-      [0b00000001, 0b00000001], // 1 ^ 1 = 0,
-      [0b11111111, 0b00000000], // 255 ^ 0 = 255,
-      [0b11111111, 0b11111111], // 255 ^ 255 = 0,
-      [0b10101010, 0b01010101], // 170 ^ 85 = 255,
-      [0b11110000, 0b00001111], // 240 ^ 15 = 255,
-      [0b11001100, 0b10101010], // 204 ^ 170 = 102,
-    ];
-    const input = inputPairs.flat();
-    const runner = new OvertrueRunner({
-      logger,
-      program,
-      input,
-    });
-    const { out } = runner.tickWhile(
-      ({ out, tick }) => out.length < inputPairs.length && tick < 1000
-    );
-    expect(out.map((v) => v.toNumber())).toEqual(
-      inputPairs.map(([a, b]) => (a! ^ b!) & 0xff)
-    );
-  });
+  test(
+    "xor",
+    ctx.test("xor", (runner) => {
+      // c = nand(a, b)
+      // d = nand(a, c)
+      // e = nand(b, c)
+      // f = nand(d, e) = a ^ b
+      const program = new MnemonicBuilder()
+        .label("start")
+        .mov("in", "r1") // r1 = input A
+        .mov("in", "r2") // r2 = input B
+        .nand() // r3 = nand(a, b) = c
+        .mov("r2", "r4") // r4 = b
+        .mov("r3", "r2") // r2 = c
+        .nand() // r3 = nand(a, c) = d
+        .mov("r3", "r5") // r5 = d
+        .mov("r4", "r1") // r1 = b
+        .nand() // r3 = nand(b, c) = e
+        .mov("r3", "r1") // r1 = e
+        .mov("r5", "r2") // r2 = d
+        .nand() // r3 = nand(d, e) = f = a ^ b
+        .mov("r3", "out") // output f
+        .imm("start")
+        .jmp()
+        .toLines();
+      const inputPairs = [
+        [0b00000000, 0b00000000], // 0 ^ 0 = 0,
+        [0b00000000, 0b00000001], // 0 ^ 1 = 1,
+        [0b00000001, 0b00000000], // 0 ^ 1 = 1,
+        [0b00000001, 0b00000001], // 1 ^ 1 = 0,
+        [0b11111111, 0b00000000], // 255 ^ 0 = 255,
+        [0b11111111, 0b11111111], // 255 ^ 255 = 0,
+        [0b10101010, 0b01010101], // 170 ^ 85 = 255,
+        [0b11110000, 0b00001111], // 240 ^ 15 = 255,
+        [0b11001100, 0b10101010], // 204 ^ 170 = 102,
+      ];
+      const input = inputPairs.flat();
+      runner.setup({ program, input });
+      const { out } = runner.tickWhile(
+        ({ out, tick }) => out.length < inputPairs.length && tick < 1000
+      );
+      expect(out.map((v) => v.toNumber())).toEqual(
+        inputPairs.map(([a, b]) => (a! ^ b!) & 0xff)
+      );
+    })
+  );
 });

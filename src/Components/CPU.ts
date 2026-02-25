@@ -2,6 +2,9 @@ import type { UInt8 } from "@/UInt";
 
 import type { LevelInput, LevelOutput } from "./LevelIO";
 
+export type CpuTraceEvent = Record<string, unknown>;
+export type CpuTraceSink = (event: CpuTraceEvent) => void;
+
 export interface CPU {
   setup(options: {
     program?: UInt8[];
@@ -9,7 +12,5 @@ export interface CPU {
     output?: LevelOutput;
   }): void;
   tick(): void;
-  getState(): unknown;
+  setTraceSink(sink?: CpuTraceSink): void;
 }
-
-export type CPUState<T extends CPU> = ReturnType<T["getState"]>;

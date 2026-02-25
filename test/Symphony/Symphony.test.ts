@@ -1,8 +1,8 @@
-import { buildTestLogger } from "@drsmile1001/testkit";
 import { describe, expect, test } from "bun:test";
 
+import type { LevelInput } from "@/Components/LevelIO";
 import { createMnemonicBuilder as builder } from "@/Symphony";
-import { SymphonyRunner, type SymphonyRunnerOptions } from "@/Symphony/Runner";
+import { type SymphonyProgram, SymphonyRunner } from "@/Symphony/Runner";
 import {
   type DecodedFlags,
   type JumpOperation,
@@ -17,8 +17,6 @@ import {
 } from "@/Symphony/Symphony";
 import { uint16 } from "@/UInt";
 
-const logger = buildTestLogger().extend("Symphony");
-
 type InstructionAndExpectation = [
   string,
   {
@@ -29,20 +27,20 @@ type InstructionAndExpectation = [
 ];
 
 describe("Symphony", () => {
-  function createRunner(
-    options: Pick<SymphonyRunnerOptions, "program" | "input">
-  ): SymphonyRunner {
-    return new SymphonyRunner({
-      logger,
-      ...options,
-    });
+  function createRunner(options: {
+    program: SymphonyProgram;
+    input?: LevelInput | number[];
+  }): SymphonyRunner {
+    const runner = new SymphonyRunner();
+    runner.setup(options);
+    return runner;
   }
 
   function runAndCheckState(programExpectations: InstructionAndExpectation[]) {
     const program = programExpectations.map(([p]) => p);
     const runner = createRunner({ program, input: [] });
     for (const [_, expected] of programExpectations) {
-      const { cpu, state } = runner.tick();
+      const { cpu } = runner.tick();
       if (expected.registers) {
         for (const [register, value] of Object.entries(expected.registers)) {
           const actualValue = cpu
@@ -53,13 +51,13 @@ describe("Symphony", () => {
       }
       if (expected.ram) {
         for (const [address, value] of Object.entries(expected.ram)) {
-          const actualValue = state.ram.read(Number(address), 8);
+          const actualValue = cpu.ram.read(Number(address), 8);
           expect(actualValue.toNumber()).toBe(value);
         }
       }
       if (expected.ssd) {
         for (const [address, value] of Object.entries(expected.ssd)) {
-          const actualValue = state.ssd.read(Number(address), 8);
+          const actualValue = cpu.ssd.read(Number(address), 8);
           expect(actualValue.toNumber()).toBe(value);
         }
       }
@@ -74,18 +72,18 @@ describe("Symphony", () => {
       .store(16, 0, "zr")
       .build();
     const tickModes: Mode[] = ["IO", "ALU", "JUMP", "RAM"];
-    createRunner({ program }).tickWhile(({ state }) => {
+    createRunner({ program }).tickWhile(({ cpu }) => {
       const expectedMode = tickModes.shift()!;
-      const actualMode = state.mode;
+      const actualMode = cpu.mode;
       expect(actualMode).toBe(expectedMode);
       return tickModes.length > 0;
     });
   });
 
   test("NOP", () => {
-    const { state } = createRunner({ program: "nop" }).tick();
-    expect(state.mode).toBe("IO");
-    expect(state.operation).toBe("NOP");
+    const { cpu } = createRunner({ program: "nop" }).tick();
+    expect(cpu.mode).toBe("IO");
+    expect(cpu.operation).toBe("NOP");
   });
 
   test("input and output - register", () => {
@@ -226,7 +224,7 @@ jumped:
 out 1
 `;
         const { out } = createRunner({ program }).tickWhile(
-          ({ state, tick }) => state.operation !== "OUT" && tick < 100
+          ({ cpu, tick }) => cpu.operation !== "OUT" && tick < 100
         );
         expect(out[0]?.toNumber()).toBe(shouldJump ? 1 : 0);
       }

@@ -1,4 +1,4 @@
-import type { CPU } from "@/Components/CPU";
+import type { CPU, CpuTraceSink } from "@/Components/CPU";
 import {
   EmptyIO,
   type LevelInput,
@@ -90,6 +90,77 @@ export function decodeFlags(flags: UIntCompatible) {
   };
 }
 export type DecodedFlags = ReturnType<typeof decodeFlags>;
+
+export type SymphonyTraceEvent =
+  | {
+      type: "tick:start";
+      tick: number;
+      pcBefore: number;
+      instruction: string;
+      decoded: {
+        modeCode: number;
+        opcode: number;
+        destination: number;
+        argA: number;
+        argB: number;
+        isImmediate: boolean;
+        immediateValue: number;
+      };
+    }
+  | {
+      type: "mode:resolved";
+      tick: number;
+      mode: Mode;
+      operation: string;
+    }
+  | {
+      type: "register:write";
+      tick: number;
+      register: number | RegisterName;
+      before: number;
+      after: number;
+      reason: string;
+    }
+  | {
+      type: "memory:write";
+      tick: number;
+      space: "ram" | "ssd";
+      address: number;
+      bits: number;
+      before: number;
+      after: number;
+    }
+  | {
+      type: "io:input-read";
+      tick: number;
+      value: number;
+      toRegister: number;
+    }
+  | {
+      type: "io:output-write";
+      tick: number;
+      value: number;
+      from: number;
+    }
+  | {
+      type: "jump:decision";
+      tick: number;
+      operation: JumpOperation;
+      taken: boolean;
+      target?: number;
+      flags: DecodedFlags;
+    }
+  | {
+      type: "unimplemented:operation";
+      tick: number;
+      mode: Mode;
+      operation: string;
+    }
+  | {
+      type: "tick:end";
+      tick: number;
+      pcAfter: number;
+    };
 
 export const jumpOperations = {
   0b1000: "JMP",
@@ -199,33 +270,22 @@ export function decodeInstruction(instruction: UInt32) {
 }
 
 export class Symphony implements CPU {
-  private ram = new RamDefault(65536);
-  private programCounter = uint16(0);
-  private registers = new RamDefault(256);
-  private ssd = new RamDefault(65536);
-  private input: LevelInput = new EmptyIO();
-  private output: LevelOutput = new EmptyIO();
-  private instruction: UInt32 = uint32(0);
-  private decodedInstruction = decodeInstruction(uint32(0));
-  private mode: Mode = "IO";
-  private operation = "NOP" as
+  ram = new RamDefault(65536);
+  programCounter = uint16(0);
+  registers = new RamDefault(256);
+  ssd = new RamDefault(65536);
+  input: LevelInput = new EmptyIO();
+  output: LevelOutput = new EmptyIO();
+  instruction: UInt32 = uint32(0);
+  decodedInstruction = decodeInstruction(uint32(0));
+  mode: Mode = "IO";
+  operation = "NOP" as
     | IoOperation
     | AluOperation
     | JumpOperation
     | RamOperation;
-
-  getState() {
-    return {
-      programCounter: this.programCounter,
-      instruction: this.instruction,
-      ...this.decodedInstruction,
-      mode: this.mode,
-      operation: this.operation,
-      registers: this.registers,
-      ram: this.ram,
-      ssd: this.ssd,
-    };
-  }
+  traceSink?: CpuTraceSink;
+  currentTick = 0;
 
   setup(options: {
     program?: UInt8[];
@@ -243,10 +303,34 @@ export class Symphony implements CPU {
     }
   }
 
+  setTraceSink(sink?: CpuTraceSink): void {
+    this.traceSink = sink;
+  }
+
   tick(): void {
+    this.currentTick++;
+    const pcBefore = this.programCounter.toNumber();
     this.instruction = this.ram.read(this.programCounter.toNumber(), 32);
     this.programCounter = this.programCounter.add(4);
     this.decodedInstruction = decodeInstruction(this.instruction);
+    this.emit({
+      type: "tick:start",
+      tick: this.currentTick,
+      pcBefore,
+      instruction: this.instruction
+        .toBytes()
+        .map((b) => b.toBinaryString())
+        .join("_"),
+      decoded: {
+        modeCode: this.decodedInstruction.modeCode,
+        opcode: this.decodedInstruction.opcode,
+        destination: this.decodedInstruction.destination.toNumber(),
+        argA: this.decodedInstruction.argA.toNumber(),
+        argB: this.decodedInstruction.argB.toNumber(),
+        isImmediate: this.decodedInstruction.isImmediate,
+        immediateValue: this.decodedInstruction.immediateValue.toNumber(),
+      },
+    });
     const valueA = this.getValueA();
     const valueB = this.getValueB();
     this.mode = modes[this.decodedInstruction.modeCode]!;
@@ -256,17 +340,42 @@ export class Symphony implements CPU {
           ioOperations[
             this.decodedInstruction.opcode as keyof typeof ioOperations
           ]!;
+        this.emit({
+          type: "mode:resolved",
+          tick: this.currentTick,
+          mode: this.mode,
+          operation: this.operation,
+        });
         switch (this.operation) {
           case "NOP":
             break;
           case "IN":
             const inputValue = this.input.read();
             this.writeDestinationRegister(inputValue);
+            this.emit({
+              type: "io:input-read",
+              tick: this.currentTick,
+              value: inputValue.toNumber(),
+              toRegister: this.decodedInstruction.destination.toNumber(),
+            });
             break;
           case "OUT":
-            this.output.write(this.getValueB());
+            const outputValue = this.getValueB();
+            this.output.write(outputValue);
+            this.emit({
+              type: "io:output-write",
+              tick: this.currentTick,
+              value: outputValue.toNumber(),
+              from: this.decodedInstruction.argB.toNumber(),
+            });
             break;
           default:
+            this.emit({
+              type: "unimplemented:operation",
+              tick: this.currentTick,
+              mode: this.mode,
+              operation: this.operation,
+            });
             break;
         }
         break;
@@ -275,6 +384,12 @@ export class Symphony implements CPU {
           aluOperations[
             this.decodedInstruction.opcode as keyof typeof aluOperations
           ]!;
+        this.emit({
+          type: "mode:resolved",
+          tick: this.currentTick,
+          mode: this.mode,
+          operation: this.operation,
+        });
         const result = aluFunctions[this.operation](valueA, valueB);
         this.writeDestinationRegister(result);
         break;
@@ -285,16 +400,36 @@ export class Symphony implements CPU {
           jumpOperations[
             this.decodedInstruction.opcode as keyof typeof jumpOperations
           ]!;
+        this.emit({
+          type: "mode:resolved",
+          tick: this.currentTick,
+          mode: this.mode,
+          operation: this.operation,
+        });
         const condition = jumpConditions[this.operation](decodedFlags);
         if (condition) {
           this.programCounter = valueB;
         }
+        this.emit({
+          type: "jump:decision",
+          tick: this.currentTick,
+          operation: this.operation,
+          taken: condition,
+          target: condition ? valueB.toNumber() : undefined,
+          flags: decodedFlags,
+        });
         break;
       case "RAM":
         this.operation =
           ramOperations[
             this.decodedInstruction.opcode as keyof typeof ramOperations
           ]!;
+        this.emit({
+          type: "mode:resolved",
+          tick: this.currentTick,
+          mode: this.mode,
+          operation: this.operation,
+        });
         const { direction, width, target } = decodeRamOpcode(
           this.decodedInstruction.opcode
         );
@@ -303,16 +438,45 @@ export class Symphony implements CPU {
           this.writeDestinationRegister(
             targetRam.read(valueB.toNumber(), width)
           );
-        else targetRam.write(valueB.toNumber(), uint(width, valueA));
+        else {
+          const address = valueB.toNumber();
+          const before = targetRam.read(address, width).toNumber();
+          const writeValue = uint(width, valueA);
+          targetRam.write(address, writeValue);
+          this.emit({
+            type: "memory:write",
+            tick: this.currentTick,
+            space: target === "RAM" ? "ram" : "ssd",
+            address,
+            bits: width,
+            before,
+            after: writeValue.toNumber(),
+          });
+        }
         break;
       default:
         break;
     }
+    this.emit({
+      type: "tick:end",
+      tick: this.currentTick,
+      pcAfter: this.programCounter.toNumber(),
+    });
   }
 
   writeRegister(index: number | RegisterName, value: UIntCompatible) {
+    const registerIndex = toRegisterIndex(index);
+    const before = this.readRegister(registerIndex).toNumber();
     index = toRegisterIndex(index);
     this.registers.write(index << 1, uint16(value));
+    this.emit({
+      type: "register:write",
+      tick: this.currentTick,
+      register: registerIndex,
+      before,
+      after: uint16(value).toNumber(),
+      reason: "writeRegister",
+    });
   }
   readRegister(index: number | RegisterName) {
     index = toRegisterIndex(index);
@@ -329,5 +493,9 @@ export class Symphony implements CPU {
   getValueB() {
     const { argB, isImmediate, immediateValue } = this.decodedInstruction;
     return isImmediate ? immediateValue : this.readRegister(argB.toNumber());
+  }
+
+  private emit(event: SymphonyTraceEvent) {
+    this.traceSink?.(event);
   }
 }
