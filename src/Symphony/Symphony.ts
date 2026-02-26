@@ -90,76 +90,61 @@ export function decodeFlags(flags: UIntCompatible) {
   };
 }
 export type DecodedFlags = ReturnType<typeof decodeFlags>;
-
+export type SrcB = RegisterName | "imm";
 export type TraceEventDetail =
   | {
-      type: "tick:start";
-      pcBefore: number;
+      type: "tick";
+      pc: number;
       instruction: string;
-      decoded: {
-        modeCode: number;
-        opcode: number;
-        destination: number;
-        argA: number;
-        argB: number;
-        isImmediate: boolean;
-        immediateValue: number;
-      };
     }
   | {
-      type: `io:${IoOperation}`;
-      [key: string]: unknown;
+      type: "io:NOP";
     }
   | {
-      type: `jump:${JumpOperation}`;
-      taken: false;
-      flags: DecodedFlags;
+      type: "io:IN" | "io:COUNTER";
+      dst: RegisterName;
+      value: number;
     }
   | {
-      type: `jump:${JumpOperation}`;
-      taken: true;
-      src: RegisterName | "immediate";
-      target: number;
-      flags: DecodedFlags;
+      type: "io:OUT";
+      src: SrcB;
+      value: number;
     }
   | {
       type: `alu:${AluOperation}`;
-      srcA: RegisterName;
-      srcB: RegisterName | "immediate";
-      a: number;
-      b: number;
-      result: number;
+      a: RegisterName;
+      b: SrcB;
       dst: RegisterName;
-      dstBefore: number;
+      aValue: number;
+      bValue: number;
+      result: number;
+    }
+  | {
+      type: `jump:${JumpOperation}`;
+      taken: boolean;
+      targetRef: SrcB;
+      targetValue: number;
+      flags: DecodedFlags;
     }
   | {
       type: `ram:${RamOperation}`;
-      space: "RAM" | "SSD";
-      direction: "LOAD";
-      bits: 8 | 16;
-      srcAddress: RegisterName | "immediate";
-      address: number;
-      before: number;
+      addr: SrcB;
+      dst: RegisterName;
+      addrValue: number;
+      value: number;
     }
   | {
       type: `ram:${RamOperation}`;
-      space: "RAM" | "SSD";
-      direction: "STORE";
-      bits: 8 | 16;
-      srcAddress: RegisterName | "immediate";
-      address: number;
-      before: number;
+      addr: SrcB;
       src: RegisterName;
-      after: number;
+      addrValue: number;
+      writeValue: number;
+      srcValue: number;
     }
   | {
       type: "unimplemented:operation";
       mode: Mode;
       operation: string;
-    }
-  | {
-      type: "tick:end";
-      pcAfter: number;
     };
 export type SymphonyTraceEvent = TraceEventDetail & {
   tick: number;
@@ -313,36 +298,26 @@ export class Symphony implements CPU {
 
   tick(): number {
     this.currentTick++;
-    const pcBefore = this.programCounter.toNumber();
+    const pc = this.programCounter.toNumber();
     this.instruction = this.ram.read(this.programCounter.toNumber(), 32);
     this.programCounter = this.programCounter.add(4);
     this.decodedInstruction = decodeInstruction(this.instruction);
     this.emit({
-      type: "tick:start",
-      pcBefore,
+      type: "tick",
+      pc,
       instruction: this.instruction
         .toBytes()
         .map((b) => b.toBinaryString())
         .join("_"),
-      decoded: {
-        modeCode: this.decodedInstruction.modeCode,
-        opcode: this.decodedInstruction.opcode,
-        destination: this.decodedInstruction.destination.toNumber(),
-        argA: this.decodedInstruction.argA.toNumber(),
-        argB: this.decodedInstruction.argB.toNumber(),
-        isImmediate: this.decodedInstruction.isImmediate,
-        immediateValue: this.decodedInstruction.immediateValue.toNumber(),
-      },
     });
     const valueA = this.getValueA();
     const srcA = registerNames[this.decodedInstruction.argA.toNumber()]!;
     const valueB = this.getValueB();
     this.mode = modes[this.decodedInstruction.modeCode]!;
     const srcB = this.decodedInstruction.isImmediate
-      ? "immediate"
+      ? "imm"
       : registerNames[this.decodedInstruction.argB.toNumber()]!;
     const dst = registerNames[this.decodedInstruction.destination.toNumber()]!;
-    const dstBefore = this.readRegister(dst);
     switch (this.mode) {
       case "IO":
         this.operation =
@@ -361,26 +336,24 @@ export class Symphony implements CPU {
               type: "io:IN",
               value: inputValue.toNumber(),
               dst,
-              dstBefore: dstBefore.toNumber(),
             });
             this.writeDestinationRegister(inputValue);
             break;
           case "OUT":
             this.emit({
               type: "io:OUT",
-              value: valueB.toNumber(),
               src: srcB,
+              value: valueB.toNumber(),
             });
             this.output.write(valueB);
             break;
           case "COUNTER":
             this.emit({
               type: "io:COUNTER",
-              value: pcBefore,
+              value: pc,
               dst,
-              dstBefore: dstBefore.toNumber(),
             });
-            this.writeDestinationRegister(pcBefore);
+            this.writeDestinationRegister(pc);
             break;
           default:
             this.emit({
@@ -399,13 +372,12 @@ export class Symphony implements CPU {
         const result = aluFunctions[this.operation](valueA, valueB);
         this.emit({
           type: `alu:${this.operation}`,
-          srcA,
-          srcB,
-          a: valueA.toNumber(),
-          b: valueB.toNumber(),
-          result: result.toNumber(),
+          a: srcA,
+          b: srcB,
           dst,
-          dstBefore: dstBefore.toNumber(),
+          aValue: valueA.toNumber(),
+          bValue: valueB.toNumber(),
+          result: result.toNumber(),
         });
         this.writeDestinationRegister(result);
         break;
@@ -417,21 +389,17 @@ export class Symphony implements CPU {
             this.decodedInstruction.opcode as keyof typeof jumpOperations
           ]!;
         const shouldJump = jumpConditions[this.operation](decodedFlags);
+        const targetValue = valueB.toNumber();
         if (shouldJump) {
           this.programCounter = valueB;
-          this.emit({
-            type: `jump:${this.operation}`,
-            taken: shouldJump,
-            src: srcB,
-            target: valueB.toNumber(),
-            flags: decodedFlags,
-          });
-        } else
-          this.emit({
-            type: `jump:${this.operation}`,
-            taken: shouldJump,
-            flags: decodedFlags,
-          });
+        }
+        this.emit({
+          type: `jump:${this.operation}`,
+          taken: shouldJump,
+          targetRef: srcB,
+          targetValue,
+          flags: decodedFlags,
+        });
         break;
       case "RAM":
         this.operation =
@@ -443,31 +411,26 @@ export class Symphony implements CPU {
         );
         const address = valueB.toNumber();
         const targetRam = space === "RAM" ? this.ram : this.ssd;
-        const before = targetRam.read(address, bits);
+        const memoryValue = targetRam.read(address, bits);
         const writeValue = uint(bits, valueA);
         if (direction === "LOAD") {
-          this.writeDestinationRegister(before);
+          this.writeDestinationRegister(memoryValue);
           this.emit({
             type: `ram:${this.operation}`,
-            space,
-            direction,
-            bits,
-            srcAddress: srcB,
-            address,
-            before: before.toNumber(),
+            addr: srcB,
+            dst,
+            addrValue: address,
+            value: memoryValue.toNumber(),
           });
         } else {
           targetRam.write(address, writeValue);
           this.emit({
             type: `ram:${this.operation}`,
-            space,
-            direction,
-            bits,
-            srcAddress: srcB,
-            address,
-            before: before.toNumber(),
+            addr: srcB,
             src: srcA,
-            after: writeValue.toNumber(),
+            addrValue: address,
+            writeValue: writeValue.toNumber(),
+            srcValue: valueA.toNumber(),
           });
         }
 
@@ -475,10 +438,6 @@ export class Symphony implements CPU {
       default:
         break;
     }
-    this.emit({
-      type: "tick:end",
-      pcAfter: this.programCounter.toNumber(),
-    });
     return this.currentTick;
   }
 
