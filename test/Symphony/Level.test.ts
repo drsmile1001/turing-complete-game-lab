@@ -70,7 +70,7 @@ describe("Symphony.Level", () => {
   );
 
   test(
-    "function ",
+    "function (a^(b+1))",
     ctx.test("function", (runner) => {
       runner.setup({
         program: `\
@@ -123,9 +123,9 @@ power:
 
     ret
 `,
-        input: [5, 7],
+        input: [2, 5],
       });
-      const expectedOutput = [35];
+      const expectedOutput = [64];
       const { out } = runner.tickWhile(
         ({ out, tick }) => out.length < expectedOutput.length && tick < 1000
       );

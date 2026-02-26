@@ -134,12 +134,23 @@ export type TraceEventDetail =
     }
   | {
       type: `ram:${RamOperation}`;
-      space: "ram" | "ssd";
-      direction: "LOAD" | "STORE";
-      address: number;
+      space: "RAM" | "SSD";
+      direction: "LOAD";
       bits: 8 | 16;
+      srcAddress: RegisterName | "immediate";
+      address: number;
       before: number;
-      after?: number;
+    }
+  | {
+      type: `ram:${RamOperation}`;
+      space: "RAM" | "SSD";
+      direction: "STORE";
+      bits: 8 | 16;
+      srcAddress: RegisterName | "immediate";
+      address: number;
+      before: number;
+      src: RegisterName;
+      after: number;
     }
   | {
       type: "unimplemented:operation";
@@ -362,6 +373,15 @@ export class Symphony implements CPU {
             });
             this.output.write(valueB);
             break;
+          case "COUNTER":
+            this.emit({
+              type: "io:COUNTER",
+              value: pcBefore,
+              dst,
+              dstBefore: dstBefore.toNumber(),
+            });
+            this.writeDestinationRegister(pcBefore);
+            break;
           default:
             this.emit({
               type: "unimplemented:operation",
@@ -425,17 +445,32 @@ export class Symphony implements CPU {
         const targetRam = space === "RAM" ? this.ram : this.ssd;
         const before = targetRam.read(address, bits);
         const writeValue = uint(bits, valueA);
-        if (direction === "LOAD") this.writeDestinationRegister(before);
-        else targetRam.write(address, writeValue);
-        this.emit({
-          type: `ram:${this.operation}`,
-          space: space === "RAM" ? "ram" : "ssd",
-          direction,
-          address,
-          bits,
-          before: before.toNumber(),
-          after: direction === "STORE" ? writeValue.toNumber() : undefined,
-        });
+        if (direction === "LOAD") {
+          this.writeDestinationRegister(before);
+          this.emit({
+            type: `ram:${this.operation}`,
+            space,
+            direction,
+            bits,
+            srcAddress: srcB,
+            address,
+            before: before.toNumber(),
+          });
+        } else {
+          targetRam.write(address, writeValue);
+          this.emit({
+            type: `ram:${this.operation}`,
+            space,
+            direction,
+            bits,
+            srcAddress: srcB,
+            address,
+            before: before.toNumber(),
+            src: srcA,
+            after: writeValue.toNumber(),
+          });
+        }
+
         break;
       default:
         break;

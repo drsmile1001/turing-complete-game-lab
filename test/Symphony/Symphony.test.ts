@@ -126,6 +126,21 @@ describe("Symphony", () => {
   );
 
   test(
+    "counter",
+    ctx.test("output-immediate", (runner) => {
+      const program = builder()
+        .counter("r1")
+        .out("r1")
+        .counter("r1")
+        .out("r1")
+        .build();
+      runner.setup({ program });
+      const { out } = runner.tickWhile(({ out }) => out.length < 2);
+      expect(out.map((v) => v.toNumber())).toEqual([0, 8]);
+    })
+  );
+
+  test(
     "alu",
     ctx.test("alu", (runner) => {
       const programAndExpected: InstructionAndExpectation[] = [
@@ -170,8 +185,7 @@ describe("Symphony", () => {
     "alias",
     ctx.test("alias", (runner) => {
       const programAndExpected: InstructionAndExpectation[] = [
-        //[`imm r1, ${0b0110}`, { registers: { r1: 0b0110 } }],
-        [`or r1, zr, ${0b0110}`, { registers: { r1: 0b0110 } }],
+        [`mov r1, ${0b0110}`, { registers: { r1: 0b0110 } }],
         [`mov r2, r1`, { registers: { r2: 0b0110 } }],
         [`not r3, r1`, { registers: { r3: uint16(0b0110).not().toNumber() } }],
         [`neg r4, r1`, { registers: { r4: uint16(0).sub(0b0110).toNumber() } }],
@@ -388,5 +402,29 @@ out 1
         expect(actualMatched.sort()).toEqual(matched.sort());
       }
     });
+
+    test(
+      "call and return",
+      ctx.test("call-return", (runner) => {
+        const program = builder()
+          .out(0)
+          .call("funcA")
+          .out(4)
+          .label("funcA")
+          .out(1)
+          .call("funcB")
+          .out(3)
+          .ret()
+          .label("funcB")
+          .out(2)
+          .ret()
+          .build();
+        runner.setup({ program });
+        const { out } = runner.tickWhile(
+          ({ out, tick }) => out.length < 5 && tick < 100
+        );
+        expect(out.map((v) => v.toNumber())).toEqual([0, 1, 2, 3, 4]);
+      })
+    );
   });
 });
