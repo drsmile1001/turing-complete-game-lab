@@ -325,43 +325,43 @@ out 1
     test("decodeRamOpcode", () => {
       expect(decodeRamOpcode(0b0000)).toEqual({
         direction: "LOAD",
-        width: 8,
-        target: "RAM",
+        bits: 8,
+        space: "RAM",
       });
       expect(decodeRamOpcode(0b0001)).toEqual({
         direction: "STORE",
-        width: 8,
-        target: "RAM",
+        bits: 8,
+        space: "RAM",
       });
       expect(decodeRamOpcode(0b0010)).toEqual({
         direction: "LOAD",
-        width: 16,
-        target: "RAM",
+        bits: 16,
+        space: "RAM",
       });
       expect(decodeRamOpcode(0b0011)).toEqual({
         direction: "STORE",
-        width: 16,
-        target: "RAM",
+        bits: 16,
+        space: "RAM",
       });
       expect(decodeRamOpcode(0b0100)).toEqual({
         direction: "LOAD",
-        width: 8,
-        target: "SSD",
+        bits: 8,
+        space: "SSD",
       });
       expect(decodeRamOpcode(0b0101)).toEqual({
         direction: "STORE",
-        width: 8,
-        target: "SSD",
+        bits: 8,
+        space: "SSD",
       });
       expect(decodeRamOpcode(0b0110)).toEqual({
         direction: "LOAD",
-        width: 16,
-        target: "SSD",
+        bits: 16,
+        space: "SSD",
       });
       expect(decodeRamOpcode(0b0111)).toEqual({
         direction: "STORE",
-        width: 16,
-        target: "SSD",
+        bits: 16,
+        space: "SSD",
       });
     });
 
