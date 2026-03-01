@@ -9,12 +9,12 @@
     "clean:traces": "bun -e \"import { rm } from 'node:fs/promises'; await rm('artifacts/traces', { recursive: true, force: true });\""
   },
   "dependencies": {
-    "@drsmile1001/config-factory": "^0.1.0",
-    "@drsmile1001/logger": "^0.1.0",
-    "@drsmile1001/testkit": "^0.1.1",
-    "@drsmile1001/utils": "^0.1.0",
+    "@drsmile1001/config-factory": "^1.0.0",
+    "@drsmile1001/logger": "^2.0.0",
+    "@drsmile1001/testkit": "^1.1.0",
+    "@drsmile1001/utils": "^1.0.0",
     "@sinclair/typebox": "^0.34.48",
-    "cac": "^6.7.14"
+    "cac": "^7.0.0"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
